@@ -41,4 +41,31 @@ public sealed class AppSettingsValidationTests
         Assert.False(Validator.TryValidateObject(snooze, new ValidationContext(snooze), results, validateAllProperties: true));
         Assert.Contains(results, r => r.MemberNames.Contains(nameof(SnoozeSettings.IncrementMinutes)));
     }
+
+    [Fact]
+    public void Snooze_IncrementAboveRange_FailsValidation()
+    {
+        var snooze = new SnoozeSettings { IncrementMinutes = 31 };
+        var results = new List<ValidationResult>();
+        Assert.False(Validator.TryValidateObject(snooze, new ValidationContext(snooze), results, validateAllProperties: true));
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(SnoozeSettings.IncrementMinutes)));
+    }
+
+    [Fact]
+    public void Duration_BelowRange_FailsValidation()
+    {
+        var tier = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 9 };
+        var results = new List<ValidationResult>();
+        Assert.False(Validator.TryValidateObject(tier, new ValidationContext(tier), results, validateAllProperties: true));
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(BreakTierSettings.DurationSeconds)));
+    }
+
+    [Fact]
+    public void Duration_AboveRange_FailsValidation()
+    {
+        var tier = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 601 };
+        var results = new List<ValidationResult>();
+        Assert.False(Validator.TryValidateObject(tier, new ValidationContext(tier), results, validateAllProperties: true));
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(BreakTierSettings.DurationSeconds)));
+    }
 }
