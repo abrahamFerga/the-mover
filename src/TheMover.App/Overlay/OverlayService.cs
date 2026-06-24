@@ -93,17 +93,22 @@ public sealed class OverlayService : BackgroundService
                     _tray.HideBreakActions();
                 });
 
+            // Keep the registration alive until the window closes so that shutdown
+            // cancellation reliably triggers window.Close() even if ct fires while
+            // the overlay is still visible.  If using var were used here, the
+            // registration would be disposed the moment Dispatcher.Invoke returns.
+            var reg = ct.Register(() => Application.Current?.Dispatcher.Invoke(() =>
+            {
+                if (window.IsLoaded) window.Close();
+            }));
+
             window.Closed += (_, _) =>
             {
                 _state.FiringTier = null;
                 _tray.HideBreakActions();
+                reg.Dispose();
                 tcs.TrySetResult();
             };
-
-            using var reg = ct.Register(() => Application.Current.Dispatcher.Invoke(() =>
-            {
-                if (window.IsLoaded) window.Close();
-            }));
 
             _eventLogger.Log(AppEventType.OverlayShown, new Dictionary<string, object?>
             {

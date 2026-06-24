@@ -171,6 +171,10 @@ public sealed class TrayIconService : IHostedService, IDisposable
 
     private string BuildActiveTooltip()
     {
+        // Guard against the DateTimeOffset.MaxValue default before the scheduler
+        // has called SyncNextBreak — casting MaxValue.TotalMinutes to int overflows.
+        if (_state.NextBreakAt == DateTimeOffset.MaxValue)
+            return "The Mover — Break reminder active";
         var remaining = _state.NextBreakAt - DateTimeOffset.UtcNow;
         if (remaining <= TimeSpan.Zero)
             return "The Mover — Break due";

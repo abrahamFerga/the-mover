@@ -58,6 +58,14 @@ public sealed class BreakTimerStateTests
     }
 
     [Fact]
+    public void NextBreakAt_DefaultsToMaxValue()
+    {
+        // TrayIconService guards against MaxValue to avoid int overflow in the countdown tooltip.
+        var state = new BreakTimerState();
+        Assert.Equal(DateTimeOffset.MaxValue, state.NextBreakAt);
+    }
+
+    [Fact]
     public void BreakDueEvent_HasCorrectProperties()
     {
         var firedAt = DateTimeOffset.UtcNow;
