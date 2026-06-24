@@ -92,9 +92,43 @@
                 </Grid>
             </TabItem>
             <TabItem Header="Outlook">
-                <StackPanel Margin="8">
-                    <TextBlock Text="Outlook calendar integration settings will appear here (Epic 4)."
-                               Foreground="Gray" FontStyle="Italic" />
+                <StackPanel Margin="12">
+                    <TextBlock Text="Microsoft 365 calendar" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <TextBlock TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,0,0,10"
+                               Text="When connected, breaks are suppressed while a calendar event is active. Requires an Azure AD App Registration with Calendars.Read scope." />
+
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="8" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Tenant ID" VerticalAlignment="Center" />
+                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="TenantIdBox" />
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Client ID" VerticalAlignment="Center" />
+                        <TextBox Grid.Row="2" Grid.Column="1" x:Name="ClientIdBox" />
+                    </Grid>
+
+                    <TextBlock x:Name="CalendarStatusLabel"
+                               Text="Status: Not connected"
+                               Foreground="Gray" FontSize="11" Margin="0,0,0,8" />
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="ConnectButton"
+                                Content="Connect Outlook"
+                                Width="130" Height="30"
+                                Margin="0,0,8,0"
+                                Click="Connect_Click" />
+                        <Button x:Name="DisconnectButton"
+                                Content="Disconnect"
+                                Width="100" Height="30"
+                                IsEnabled="False"
+                                Click="Disconnect_Click" />
+                    </StackPanel>
                 </StackPanel>
             </TabItem>
             <TabItem Header="About">

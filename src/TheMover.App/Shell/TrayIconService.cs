@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TheMover.App.Config;
 using TheMover.App.Settings;
+using TheMover.Calendar;
 using TheMover.Scheduler;
 
 namespace TheMover.App.Shell;
@@ -20,6 +21,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
     private readonly Channel<BreakCommand> _breakCommandChannel;
     private readonly ConfigManager _configManager;
     private readonly IOptionsMonitor<AppSettings> _options;
+    private readonly ICalendarClient _calendarClient;
 
     private TaskbarIcon? _trayIcon;
     private MenuItem? _snoozeItem;
@@ -30,13 +32,15 @@ public sealed class TrayIconService : IHostedService, IDisposable
         ILogger<TrayIconService> logger,
         Channel<BreakCommand> breakCommandChannel,
         ConfigManager configManager,
-        IOptionsMonitor<AppSettings> options)
+        IOptionsMonitor<AppSettings> options,
+        ICalendarClient calendarClient)
     {
         _lifetime = lifetime;
         _logger = logger;
         _breakCommandChannel = breakCommandChannel;
         _configManager = configManager;
         _options = options;
+        _calendarClient = calendarClient;
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
@@ -125,7 +129,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-            var win = new SettingsWindow(_configManager);
+            var win = new SettingsWindow(_configManager, _calendarClient);
             win.Show();
         });
     }

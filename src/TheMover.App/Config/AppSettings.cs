@@ -27,4 +27,5 @@ public sealed class CalendarSettings
 {
     public bool Enabled { get; set; } = false;
     public string? TenantId { get; set; }
+    public string? ClientId { get; set; }
 }
