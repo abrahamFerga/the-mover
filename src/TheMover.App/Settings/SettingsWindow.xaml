@@ -71,6 +71,26 @@
 
                 </StackPanel>
             </TabItem>
+            <TabItem Header="Exercises">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="Exercise library" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <ListBox Grid.Row="1" x:Name="ExercisesList" SelectionMode="Single">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="2,4">
+                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Instruction}" TextWrapping="Wrap"
+                                               Foreground="Gray" FontSize="11" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </TabItem>
             <TabItem Header="Outlook">
                 <StackPanel Margin="8">
                     <TextBlock Text="Outlook calendar integration settings will appear here (Epic 4)."

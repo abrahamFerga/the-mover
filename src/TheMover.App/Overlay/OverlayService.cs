@@ -1,4 +1,4 @@
-// TheMover.App — reads Channel<BreakDueEvent>, shows OverlayWindow, signals tray
+// TheMover.App — reads Channel<BreakDueEvent>, shows OverlayWindow with exercise, signals tray
 using System.Threading.Channels;
 using System.Windows;
 using Microsoft.Extensions.Hosting;
@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using TheMover.App.Config;
 using TheMover.App.Logging;
 using TheMover.App.Shell;
+using TheMover.Content;
 using TheMover.Overlay;
 using TheMover.Scheduler;
 
@@ -20,6 +21,7 @@ public sealed class OverlayService : BackgroundService
     private readonly IOptionsMonitor<AppSettings> _options;
     private readonly EventLogger _eventLogger;
     private readonly TrayIconService _tray;
+    private readonly ExercisePicker _picker;
     private readonly ILogger<OverlayService> _logger;
 
     public OverlayService(
@@ -29,6 +31,7 @@ public sealed class OverlayService : BackgroundService
         IOptionsMonitor<AppSettings> options,
         EventLogger eventLogger,
         TrayIconService tray,
+        ExercisePicker picker,
         ILogger<OverlayService> logger)
     {
         _breakDueChannel = breakDueChannel;
@@ -37,6 +40,7 @@ public sealed class OverlayService : BackgroundService
         _options = options;
         _eventLogger = eventLogger;
         _tray = tray;
+        _picker = picker;
         _logger = logger;
     }
 
@@ -64,10 +68,12 @@ public sealed class OverlayService : BackgroundService
                 : settings.MicroBreak.DurationSeconds;
             var snoozeMinutes = settings.Snooze.IncrementMinutes;
             var tierLabel = evt.Tier == BreakTier.Long ? "Long break" : "Micro-break";
+            var exercise = _picker.Pick();
 
             var window = new OverlayWindow(
                 tierLabel: tierLabel,
                 durationSeconds: duration,
+                exercise: exercise,
                 onSnooze: () =>
                 {
                     _breakCommandChannel.Writer.TryWrite(new SnoozeBreakCommand(snoozeMinutes));

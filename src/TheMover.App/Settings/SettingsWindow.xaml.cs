@@ -1,7 +1,8 @@
-// TheMover.App — Settings window (Break Schedule tab wired to ConfigManager)
+// TheMover.App — Settings window (Break Schedule + Exercise browse tabs)
 using System.Diagnostics.CodeAnalysis;
 using System.Windows;
 using TheMover.App.Config;
+using TheMover.Content;
 
 namespace TheMover.App.Settings;
 
@@ -24,6 +25,8 @@ public partial class SettingsWindow : Window
         LongIntervalBox.Text = s.LongBreak.IntervalMinutes.ToString();
         LongDurationBox.Text = s.LongBreak.DurationSeconds.ToString();
         AutoStartBox.IsChecked = s.AutoStartWithWindows;
+
+        ExercisesList.ItemsSource = ExerciseLibrary.All;
     }
 
     private async void Save_Click(object sender, RoutedEventArgs e)

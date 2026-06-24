@@ -1,6 +1,9 @@
-// TheMover.Overlay — in-process WPF overlay (not a toast; bypasses Focus Assist)
+// TheMover.Overlay — in-process WPF overlay (Topmost=True bypasses Focus Assist; ADR-0003)
 using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using TheMover.Content;
 
 namespace TheMover.Overlay;
 
@@ -9,11 +12,11 @@ public partial class OverlayWindow : Window
     private readonly int _totalSeconds;
     private readonly Action _onSnooze;
     private readonly Action _onSkip;
-    private readonly DispatcherTimer _timer;
+    private readonly DispatcherTimer _countdown;
     private int _remaining;
     private bool _actionTaken;
 
-    public OverlayWindow(string tierLabel, int durationSeconds, Action onSnooze, Action onSkip)
+    public OverlayWindow(string tierLabel, int durationSeconds, Exercise exercise, Action onSnooze, Action onSkip)
     {
         _totalSeconds = durationSeconds;
         _remaining = durationSeconds;
@@ -23,16 +26,33 @@ public partial class OverlayWindow : Window
         InitializeComponent();
 
         TierLabel.Text = tierLabel;
+        ExerciseTitle.Text = exercise.Title;
+        InstructionText.Text = exercise.Instruction;
         UpdateDisplay();
 
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _timer.Tick += OnTick;
+        _countdown = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _countdown.Tick += OnTick;
     }
 
-    protected override void OnContentRendered(EventArgs e)
+    private void OnContentRendered(object sender, EventArgs e)
     {
-        base.OnContentRendered(e);
-        _timer.Start();
+        _countdown.Start();
+        StartBreatheAnimation();
+    }
+
+    private void StartBreatheAnimation()
+    {
+        var anim = new DoubleAnimation
+        {
+            From = 0.7,
+            To = 1.0,
+            Duration = TimeSpan.FromSeconds(4),
+            AutoReverse = true,
+            RepeatBehavior = RepeatBehavior.Forever,
+            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+        };
+        BreathScale.BeginAnimation(ScaleTransform.ScaleXProperty, anim);
+        BreathScale.BeginAnimation(ScaleTransform.ScaleYProperty, anim);
     }
 
     private void OnTick(object? sender, EventArgs e)
@@ -42,18 +62,15 @@ public partial class OverlayWindow : Window
 
         if (_remaining <= 0)
         {
-            _timer.Stop();
+            _countdown.Stop();
             Close();
         }
     }
 
     private void UpdateDisplay()
     {
-        var ts = TimeSpan.FromSeconds(_remaining);
-        CountdownLabel.Text = ts.TotalSeconds >= 60
-            ? $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}"
-            : $"0:{_remaining:D2}";
-
+        var ts = TimeSpan.FromSeconds(Math.Max(0, _remaining));
+        CountdownLabel.Text = $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}";
         CountdownBar.Value = _totalSeconds > 0 ? (double)_remaining / _totalSeconds : 0;
     }
 
@@ -61,7 +78,7 @@ public partial class OverlayWindow : Window
     {
         if (_actionTaken) return;
         _actionTaken = true;
-        _timer.Stop();
+        _countdown.Stop();
         _onSnooze();
         Close();
     }
@@ -70,7 +87,7 @@ public partial class OverlayWindow : Window
     {
         if (_actionTaken) return;
         _actionTaken = true;
-        _timer.Stop();
+        _countdown.Stop();
         _onSkip();
         Close();
     }
