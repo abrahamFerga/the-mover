@@ -74,7 +74,11 @@ public sealed class CalendarSyncService : BackgroundService
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Graceful degradation: if Graph is unreachable, don't suppress breaks
-            _state.HeldForMeeting = false;
+            if (_state.HeldForMeeting)
+            {
+                _state.HeldForMeeting = false;
+                _updateMeetingTooltip?.Invoke(false);
+            }
             _logger.LogWarning(ex, "Calendar poll failed — breaks will fire normally");
         }
     }

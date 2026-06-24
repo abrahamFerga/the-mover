@@ -77,6 +77,22 @@ public sealed class CalendarSyncServiceTests
     }
 
     [Fact]
+    public async Task WhenClientThrows_AndWasInMeeting_InvokesTooltipCallbackFalse()
+    {
+        var settings = new AppSettings { Calendar = new CalendarSettings { Enabled = true } };
+        var client = new ThrowingCalendarClient();
+        var state = new BreakTimerState { HeldForMeeting = true };
+        var updates = new List<bool>();
+        var svc = new CalendarSyncService(client, state, new OptionsMonitorStub(settings),
+            NullLogger<CalendarSyncService>.Instance, updateMeetingTooltip: updates.Add);
+
+        await svc.PollAsync();
+
+        Assert.Single(updates);
+        Assert.False(updates[0]);
+    }
+
+    [Fact]
     public async Task WhenMeetingStateChanges_InvokesTooltipCallback()
     {
         var settings = new AppSettings { Calendar = new CalendarSettings { Enabled = true } };
