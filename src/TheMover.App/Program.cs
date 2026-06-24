@@ -62,12 +62,21 @@ builder.Services.AddSingleton<BreakTimerState>();
 builder.Services.AddHttpClient("calendar");
 builder.Services.AddSingleton<ICalendarClient>(sp =>
 {
-    var cal = sp.GetRequiredService<IOptions<AppSettings>>().Value.Calendar;
+    var options = sp.GetRequiredService<IOptionsMonitor<AppSettings>>();
     var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("calendar");
+    var cal = options.CurrentValue.Calendar;
+    // Pass a live-credential factory so ConnectAsync rebuilds the PCA from the
+    // current settings, letting users connect immediately after saving credentials
+    // in the Settings window without restarting the app.
     return new GraphCalendarClient(
         clientId: cal.ClientId ?? string.Empty,
         tenantId: cal.TenantId ?? "common",
-        httpClient: http);
+        httpClient: http,
+        getCredentials: () =>
+        {
+            var c = options.CurrentValue.Calendar;
+            return (c.ClientId ?? string.Empty, c.TenantId ?? "common");
+        });
 });
 
 // App services
