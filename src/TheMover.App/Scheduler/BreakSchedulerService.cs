@@ -71,7 +71,7 @@ public sealed class BreakSchedulerService : BackgroundService
     {
         _state.Tier = tier;
         _state.NextBreakAt = firedAt;
-        await _channel.Writer.WriteAsync(new BreakDueEvent(tier, firedAt, Guid.Empty));
+        await _channel.Writer.WriteAsync(new BreakDueEvent(tier, firedAt));
         _logger.LogInformation("Break due: {Tier}", tier);
     }
 

@@ -60,12 +60,10 @@ public sealed class BreakTimerStateTests
     [Fact]
     public void BreakDueEvent_HasCorrectProperties()
     {
-        var exerciseId = Guid.NewGuid();
         var firedAt = DateTimeOffset.UtcNow;
-        var evt = new BreakDueEvent(BreakTier.Micro, firedAt, exerciseId);
+        var evt = new BreakDueEvent(BreakTier.Micro, firedAt);
         Assert.Equal(BreakTier.Micro, evt.Tier);
         Assert.Equal(firedAt, evt.FiredAt);
-        Assert.Equal(exerciseId, evt.ExerciseId);
     }
 
     [Fact]
