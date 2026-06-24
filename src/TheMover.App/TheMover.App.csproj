@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\TheMover.ServiceDefaults\TheMover.ServiceDefaults.csproj" />
     <ProjectReference Include="..\TheMover.Scheduler\TheMover.Scheduler.csproj" />
+    <ProjectReference Include="..\TheMover.Overlay\TheMover.Overlay.csproj" />
     <ProjectReference Include="..\TheMover.Content\TheMover.Content.csproj" />
     <ProjectReference Include="..\TheMover.Calendar\TheMover.Calendar.csproj" />
   </ItemGroup>
