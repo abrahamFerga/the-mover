@@ -125,6 +125,17 @@ public sealed class TrayIconService : IHostedService, IDisposable
         });
     }
 
+    public void UpdateTooltip(bool paused)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            if (_trayIcon is null) return;
+            _trayIcon.ToolTipText = paused
+                ? "The Mover — Paused (idle)"
+                : "The Mover — Break reminder active";
+        });
+    }
+
     private void OpenSettings()
     {
         Application.Current.Dispatcher.Invoke(() =>

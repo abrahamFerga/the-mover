@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using TheMover.App;
 using TheMover.App.Calendar;
 using TheMover.App.Config;
+using TheMover.App.Idle;
 using TheMover.App.Logging;
 using TheMover.App.Overlay;
 using TheMover.App.Scheduler;
@@ -84,6 +85,7 @@ builder.Services.AddHostedService<WpfHostedService>();
 builder.Services.AddHostedService<BreakSchedulerService>();
 builder.Services.AddHostedService<BreakCommandHandlerService>();
 builder.Services.AddHostedService<CalendarSyncService>();
+builder.Services.AddHostedService<IdleMonitorService>();
 builder.Services.AddHostedService<OverlayService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<TrayIconService>());
 
