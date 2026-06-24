@@ -108,6 +108,24 @@ public sealed class BreakSchedulerServiceTests
         Assert.True(Math.Abs((state.NextBreakAt - expectedNext).TotalSeconds) < 5);
     }
 
+    [Fact]
+    public async Task NextBreakAt_UpdatedToMicroIntervalAfterLongBreakFires()
+    {
+        var state = new BreakTimerState();
+        var (svc, _, _) = BuildService(state: state);
+        var now = DateTimeOffset.UtcNow;
+        var ago = now.AddMinutes(-60);
+        state.LastLongBreakAt = ago;
+        state.LastMicroBreakAt = ago;
+
+        await svc.CheckAndFireAsync(now);
+
+        // After a long break, both timers reset to now; next break is micro in 20 min
+        var expectedNext = now + TimeSpan.FromMinutes(20);
+        Assert.True(Math.Abs((state.NextBreakAt - expectedNext).TotalSeconds) < 5);
+        Assert.Equal(BreakTier.Micro, state.Tier);
+    }
+
     private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>
     {
         public AppSettings CurrentValue => value;
