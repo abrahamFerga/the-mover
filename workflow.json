@@ -5,7 +5,11 @@
   "cloud": "none",
   "connectors": [],
   "capabilities": [],
-  "github": null,
+  "github": {
+    "repo": "abrahamFerga/the-mover",
+    "project": 4,
+    "visibility": "public"
+  },
   "skills": {
     "self": {
       "marketplace": "my-skills",
