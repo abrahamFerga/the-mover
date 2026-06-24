@@ -50,6 +50,9 @@ public sealed class OverlayService : BackgroundService
         {
             _eventLogger.Log(AppEventType.BreakFired, new Dictionary<string, object?> { ["tier"] = evt.Tier.ToString() });
             _logger.LogInformation("Break due: {Tier}", evt.Tier);
+            // Set FiringTier BEFORE ShowBreakActions so a tray skip during this
+            // window always reads the correct tier rather than null ("Unknown").
+            _state.FiringTier = evt.Tier;
             _tray.ShowBreakActions();
 
             await ShowOverlayAsync(evt, stoppingToken);
@@ -69,8 +72,6 @@ public sealed class OverlayService : BackgroundService
             var snoozeMinutes = settings.Snooze.IncrementMinutes;
             var tierLabel = evt.Tier == BreakTier.Long ? "Long break" : "Micro-break";
             var exercise = _picker.Pick();
-
-            _state.FiringTier = evt.Tier;
 
             var window = new OverlayWindow(
                 tierLabel: tierLabel,
