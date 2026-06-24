@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using TheMover.App.Config;
 using TheMover.App.Logging;
 using TheMover.App.Settings;
 using TheMover.Scheduler;
@@ -21,6 +22,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
     private readonly BreakTimerState _timerState;
     private readonly Channel<BreakDueEvent> _breakDueChannel;
     private readonly Channel<BreakCommand> _breakCommandChannel;
+    private readonly ConfigManager _configManager;
     private TaskbarIcon? _trayIcon;
     private CancellationTokenSource? _cts;
 
@@ -30,7 +32,8 @@ public sealed class TrayIconService : IHostedService, IDisposable
         EventLogger eventLogger,
         BreakTimerState timerState,
         Channel<BreakDueEvent> breakDueChannel,
-        Channel<BreakCommand> breakCommandChannel)
+        Channel<BreakCommand> breakCommandChannel,
+        ConfigManager configManager)
     {
         _lifetime = lifetime;
         _logger = logger;
@@ -38,6 +41,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
         _timerState = timerState;
         _breakDueChannel = breakDueChannel;
         _breakCommandChannel = breakCommandChannel;
+        _configManager = configManager;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -79,11 +83,11 @@ public sealed class TrayIconService : IHostedService, IDisposable
         return menu;
     }
 
-    private static void OpenSettings()
+    private void OpenSettings()
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-            var win = new SettingsWindow();
+            var win = new SettingsWindow(_configManager);
             win.Show();
         });
     }

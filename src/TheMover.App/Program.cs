@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using TheMover.App;
 using TheMover.App.Config;
 using TheMover.App.Logging;
+using TheMover.App.Scheduler;
 using TheMover.App.Shell;
 using TheMover.Scheduler;
 
@@ -22,8 +23,8 @@ var localConfigPath = Path.Combine(
     "TheMover", "appsettings.local.json");
 
 builder.Configuration
-    .AddJsonFile("appsettings.json", optional: false)
-    .AddJsonFile(localConfigPath, optional: true)
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile(localConfigPath, optional: true, reloadOnChange: true)
     .AddEnvironmentVariables();
 
 builder.Services
@@ -58,8 +59,9 @@ builder.Services.AddSingleton<TrayIconService>();
 // WPF Application (created once on the STA thread)
 builder.Services.AddSingleton<Application, App>();
 
-// Hosted services — WPF first so the STA thread is up, then TrayIconService
+// Hosted services — WPF first so the STA thread is up, then scheduler, then tray
 builder.Services.AddHostedService<WpfHostedService>();
+builder.Services.AddHostedService<BreakSchedulerService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<TrayIconService>());
 
 var host = builder.Build();

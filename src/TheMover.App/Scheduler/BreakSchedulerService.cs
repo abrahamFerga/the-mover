@@ -1,0 +1,93 @@
+// TheMover.App — ARCH.md: Components / BreakSchedulerService (fires BreakDueEvent to channel)
+using System.Threading.Channels;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using TheMover.App.Config;
+using TheMover.Scheduler;
+
+namespace TheMover.App.Scheduler;
+
+public sealed class BreakSchedulerService : BackgroundService
+{
+    private readonly IOptionsMonitor<AppSettings> _options;
+    private readonly Channel<BreakDueEvent> _channel;
+    private readonly BreakTimerState _state;
+    private readonly ILogger<BreakSchedulerService> _logger;
+
+    internal DateTimeOffset LastMicroBreakAt { get; set; }
+    internal DateTimeOffset LastLongBreakAt { get; set; }
+
+    public BreakSchedulerService(
+        IOptionsMonitor<AppSettings> options,
+        Channel<BreakDueEvent> channel,
+        BreakTimerState state,
+        ILogger<BreakSchedulerService> logger)
+    {
+        _options = options;
+        _channel = channel;
+        _state = state;
+        _logger = logger;
+
+        var now = DateTimeOffset.UtcNow;
+        LastMicroBreakAt = now;
+        LastLongBreakAt = now;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        SyncNextBreak(DateTimeOffset.UtcNow);
+
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        while (await timer.WaitForNextTickAsync(stoppingToken))
+        {
+            await CheckAndFireAsync(DateTimeOffset.UtcNow);
+        }
+    }
+
+    // Internal for unit testing without real timers
+    internal async Task<bool> CheckAndFireAsync(DateTimeOffset now)
+    {
+        if (_state.IsPaused) return false;
+
+        var settings = _options.CurrentValue;
+        var longInterval = TimeSpan.FromMinutes(settings.LongBreak.IntervalMinutes);
+        var microInterval = TimeSpan.FromMinutes(settings.MicroBreak.IntervalMinutes);
+
+        if (now - LastLongBreakAt >= longInterval)
+        {
+            await FireAsync(BreakTier.Long, now);
+            LastLongBreakAt = now;
+            LastMicroBreakAt = now;
+            SyncNextBreak(now);
+            return true;
+        }
+
+        if (now - LastMicroBreakAt >= microInterval)
+        {
+            await FireAsync(BreakTier.Micro, now);
+            LastMicroBreakAt = now;
+            SyncNextBreak(now);
+            return true;
+        }
+
+        return false;
+    }
+
+    private async Task FireAsync(BreakTier tier, DateTimeOffset firedAt)
+    {
+        _state.Tier = tier;
+        _state.NextBreakAt = firedAt;
+        await _channel.Writer.WriteAsync(new BreakDueEvent(tier, firedAt, Guid.Empty));
+        _logger.LogInformation("Break due: {Tier}", tier);
+    }
+
+    private void SyncNextBreak(DateTimeOffset now)
+    {
+        var settings = _options.CurrentValue;
+        var nextMicro = LastMicroBreakAt + TimeSpan.FromMinutes(settings.MicroBreak.IntervalMinutes);
+        var nextLong = LastLongBreakAt + TimeSpan.FromMinutes(settings.LongBreak.IntervalMinutes);
+        _state.NextBreakAt = nextMicro <= nextLong ? nextMicro : nextLong;
+        _state.Tier = nextMicro <= nextLong ? BreakTier.Micro : BreakTier.Long;
+    }
+}
