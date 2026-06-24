@@ -1,0 +1,116 @@
+// TheMover.App.Tests — BreakSchedulerService core scheduling logic
+using System.Threading.Channels;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using TheMover.App.Config;
+using TheMover.App.Scheduler;
+using TheMover.Scheduler;
+
+namespace TheMover.App.Tests.Scheduler;
+
+public sealed class BreakSchedulerServiceTests
+{
+    private static (BreakSchedulerService Service, Channel<BreakDueEvent> Channel) BuildService(
+        AppSettings? settings = null,
+        BreakTimerState? state = null)
+    {
+        settings ??= new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 30 },
+            LongBreak = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
+        };
+        var channel = Channel.CreateUnbounded<BreakDueEvent>();
+        var svc = new BreakSchedulerService(
+            new OptionsMonitorStub(settings),
+            channel,
+            state ?? new BreakTimerState(),
+            NullLogger<BreakSchedulerService>.Instance);
+        return (svc, channel);
+    }
+
+    [Fact]
+    public async Task MicroBreak_FiresAfterMicroInterval()
+    {
+        var (svc, ch) = BuildService();
+        svc.LastMicroBreakAt = DateTimeOffset.UtcNow.AddMinutes(-20);
+
+        await svc.CheckAndFireAsync(DateTimeOffset.UtcNow);
+
+        Assert.True(ch.Reader.TryRead(out var evt));
+        Assert.Equal(BreakTier.Micro, evt.Tier);
+    }
+
+    [Fact]
+    public async Task LongBreak_FiresAfterLongInterval_AndResetsMicroTimer()
+    {
+        var (svc, ch) = BuildService();
+        var ago = DateTimeOffset.UtcNow.AddMinutes(-60);
+        svc.LastLongBreakAt = ago;
+        svc.LastMicroBreakAt = ago;
+
+        await svc.CheckAndFireAsync(DateTimeOffset.UtcNow);
+
+        Assert.True(ch.Reader.TryRead(out var evt));
+        Assert.Equal(BreakTier.Long, evt.Tier);
+        Assert.False(ch.Reader.TryRead(out _));
+    }
+
+    [Fact]
+    public async Task DoesNotFire_WhenNotEnoughTimeElapsed()
+    {
+        var (svc, ch) = BuildService();
+
+        var fired = await svc.CheckAndFireAsync(DateTimeOffset.UtcNow);
+
+        Assert.False(fired);
+        Assert.False(ch.Reader.TryRead(out _));
+    }
+
+    [Fact]
+    public async Task DoesNotFire_WhenPaused()
+    {
+        var state = new BreakTimerState { HeldForMeeting = true };
+        var (svc, ch) = BuildService(state: state);
+        svc.LastMicroBreakAt = DateTimeOffset.UtcNow.AddMinutes(-25);
+
+        var fired = await svc.CheckAndFireAsync(DateTimeOffset.UtcNow);
+
+        Assert.False(fired);
+        Assert.False(ch.Reader.TryRead(out _));
+    }
+
+    [Fact]
+    public async Task LongBreak_TakesPriorityOverMicro_WhenBothElapsed()
+    {
+        var (svc, ch) = BuildService();
+        var ago = DateTimeOffset.UtcNow.AddHours(-2);
+        svc.LastMicroBreakAt = ago;
+        svc.LastLongBreakAt = ago;
+
+        await svc.CheckAndFireAsync(DateTimeOffset.UtcNow);
+
+        Assert.True(ch.Reader.TryRead(out var evt));
+        Assert.Equal(BreakTier.Long, evt.Tier);
+    }
+
+    [Fact]
+    public async Task NextBreakAt_UpdatedAfterMicroFire()
+    {
+        var state = new BreakTimerState();
+        var (svc, _) = BuildService(state: state);
+        var now = DateTimeOffset.UtcNow;
+        svc.LastMicroBreakAt = now.AddMinutes(-20);
+
+        await svc.CheckAndFireAsync(now);
+
+        var expectedNext = now + TimeSpan.FromMinutes(20);
+        Assert.True(Math.Abs((state.NextBreakAt - expectedNext).TotalSeconds) < 5);
+    }
+
+    private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>
+    {
+        public AppSettings CurrentValue => value;
+        public AppSettings Get(string? name) => value;
+        public IDisposable? OnChange(Action<AppSettings, string?> listener) => null;
+    }
+}
