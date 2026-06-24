@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TheMover.App/TheMover.App.csproj" />
+    <Project Path="src/TheMover.AppHost/TheMover.AppHost.csproj" />
+    <Project Path="src/TheMover.Calendar/TheMover.Calendar.csproj" />
+    <Project Path="src/TheMover.Content/TheMover.Content.csproj" />
+    <Project Path="src/TheMover.Overlay/TheMover.Overlay.csproj" />
+    <Project Path="src/TheMover.Scheduler/TheMover.Scheduler.csproj" />
+    <Project Path="src/TheMover.ServiceDefaults/TheMover.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TheMover.App.Tests/TheMover.App.Tests.csproj" />
+    <Project Path="tests/TheMover.Calendar.Tests/TheMover.Calendar.Tests.csproj" />
+    <Project Path="tests/TheMover.Content.Tests/TheMover.Content.Tests.csproj" />
+    <Project Path="tests/TheMover.Scheduler.Tests/TheMover.Scheduler.Tests.csproj" />
+  </Folder>
+</Solution>

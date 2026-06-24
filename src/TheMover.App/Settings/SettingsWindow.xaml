@@ -1,0 +1,40 @@
+<Window x:Class="TheMover.App.Settings.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="The Mover — Settings"
+        Width="480" Height="400"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanMinimize">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TabControl Grid.Row="0">
+            <TabItem Header="Break Schedule">
+                <StackPanel Margin="8">
+                    <TextBlock Text="Break Schedule settings will appear here (Epic 2)."
+                               Foreground="Gray" FontStyle="Italic" />
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Outlook">
+                <StackPanel Margin="8">
+                    <TextBlock Text="Outlook calendar integration settings will appear here (Epic 4)."
+                               Foreground="Gray" FontStyle="Italic" />
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="About">
+                <StackPanel Margin="8" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="The Mover" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" />
+                    <TextBlock Text="Break reminder for desk workers." HorizontalAlignment="Center" />
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Content="Close" Width="80" Click="Close_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

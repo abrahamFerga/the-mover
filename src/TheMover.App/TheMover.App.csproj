@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <NoWarn>CS7022</NoWarn>
+    <UserSecretsId>the-mover-app-secrets</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="2.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TheMover.ServiceDefaults\TheMover.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\TheMover.Scheduler\TheMover.Scheduler.csproj" />
+    <ProjectReference Include="..\TheMover.Content\TheMover.Content.csproj" />
+    <ProjectReference Include="..\TheMover.Calendar\TheMover.Calendar.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
