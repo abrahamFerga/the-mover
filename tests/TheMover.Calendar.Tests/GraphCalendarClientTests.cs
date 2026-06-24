@@ -81,6 +81,21 @@ public sealed class GraphCalendarClientTests
             handler.LastRequest?.Headers.Authorization?.ToString());
     }
 
+    // The 4-arg constructor's factory must be lazy — called inside ConnectAsync,
+    // not at DI startup (when credentials may not yet be saved by the user).
+    [Fact]
+    public async Task WithGetCredentialsFactory_FactoryNotCalledAtConstruction()
+    {
+        var callCount = 0;
+        var client = new GraphCalendarClient(
+            "00000000-0000-0000-0000-000000000000", "common",
+            new HttpClient(),
+            getCredentials: () => { callCount++; return ("00000000-0000-0000-0000-000000000000", "common"); });
+
+        Assert.Equal(0, callCount);  // factory must not fire in the constructor
+        Assert.False(await client.IsConnectedAsync()); // fresh PCA → no accounts
+    }
+
     private sealed class FixedResponseHandler(HttpStatusCode status, string body) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(
