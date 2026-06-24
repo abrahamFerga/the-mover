@@ -39,6 +39,8 @@ public partial class OverlayWindow : Window
 
     private void OnContentRendered(object sender, EventArgs e)
     {
+        // Ensure the borderless window has keyboard focus so Escape/S shortcuts work.
+        Activate();
         _countdown.Start();
         StartBreatheAnimation();
     }
