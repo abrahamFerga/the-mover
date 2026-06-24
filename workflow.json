@@ -1,0 +1,17 @@
+{
+  "name": "the-mover",
+  "industry": "workplace-wellness",
+  "stage": "system-definition",
+  "cloud": "none",
+  "connectors": [],
+  "capabilities": [],
+  "github": null,
+  "skills": {
+    "self": {
+      "marketplace": "my-skills",
+      "repo": "abrahamFerga/my-skills",
+      "plugins": ["workflow-core", "system-definition", "architecture", "development"]
+    },
+    "external": []
+  }
+}
