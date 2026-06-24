@@ -74,6 +74,12 @@ public sealed class OverlayService : BackgroundService
                 tierLabel: tierLabel,
                 durationSeconds: duration,
                 exercise: exercise,
+                onComplete: () =>
+                {
+                    _eventLogger.Log(AppEventType.BreakCompleted, new Dictionary<string, object?> { ["tier"] = evt.Tier.ToString() });
+                    _breakCommandChannel.Writer.TryWrite(new SkipBreakCommand());
+                    _tray.HideBreakActions();
+                },
                 onSnooze: () =>
                 {
                     _breakCommandChannel.Writer.TryWrite(new SnoozeBreakCommand(snoozeMinutes));

@@ -11,16 +11,18 @@ namespace TheMover.Overlay;
 public partial class OverlayWindow : Window
 {
     private readonly int _totalSeconds;
+    private readonly Action _onComplete;
     private readonly Action _onSnooze;
     private readonly Action _onSkip;
     private readonly DispatcherTimer _countdown;
     private int _remaining;
     private bool _actionTaken;
 
-    public OverlayWindow(string tierLabel, int durationSeconds, Exercise exercise, Action onSnooze, Action onSkip)
+    public OverlayWindow(string tierLabel, int durationSeconds, Exercise exercise, Action onComplete, Action onSnooze, Action onSkip)
     {
         _totalSeconds = durationSeconds;
         _remaining = durationSeconds;
+        _onComplete = onComplete;
         _onSnooze = onSnooze;
         _onSkip = onSkip;
 
@@ -61,9 +63,11 @@ public partial class OverlayWindow : Window
         _remaining--;
         UpdateDisplay();
 
-        if (_remaining <= 0)
+        if (_remaining <= 0 && !_actionTaken)
         {
+            _actionTaken = true;
             _countdown.Stop();
+            _onComplete();
             Close();
         }
     }

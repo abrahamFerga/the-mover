@@ -23,7 +23,7 @@ public sealed class HeartbeatService(EventLogger eventLogger, ILogger<HeartbeatS
         }
     }
 
-    private void WriteHeartbeat()
+    internal void WriteHeartbeat()
     {
         eventLogger.Log(AppEventType.Heartbeat);
         logger.LogDebug("Daily heartbeat written");

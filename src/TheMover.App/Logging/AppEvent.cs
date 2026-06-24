@@ -5,6 +5,7 @@ public enum AppEventType
 {
     BreakFired,
     OverlayShown,
+    BreakCompleted,
     Snoozed,
     Dismissed,
     Heartbeat
