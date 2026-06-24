@@ -4,6 +4,8 @@ using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using TheMover.App.Config;
 using TheMover.App.Shell;
 
 namespace TheMover.App;
@@ -28,11 +30,18 @@ public sealed class WpfHostedService(
                 e.Handled = true;
             };
 
-            // Show the tray icon once the WPF dispatcher is running.
+            // Show the tray icon and sync the startup registry entry on first launch.
             app.Startup += (_, _) =>
             {
                 var tray = services.GetRequiredService<TrayIconService>();
                 tray.ShowTrayIcon();
+
+                // Keep HKCU Run in sync with the config so the registry reflects
+                // any edits made while the app was not running (e.g. config file edited).
+                var settings = services.GetRequiredService<IOptions<AppSettings>>().Value;
+                var registrar = services.GetRequiredService<StartupRegistrar>();
+                var exePath = Environment.ProcessPath ?? string.Empty;
+                registrar.SetStartupEnabled(settings.AutoStartWithWindows, exePath);
             };
 
             app.Run();

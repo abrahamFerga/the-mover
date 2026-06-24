@@ -22,6 +22,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
     private readonly ConfigManager _configManager;
     private readonly IOptionsMonitor<AppSettings> _options;
     private readonly ICalendarClient _calendarClient;
+    private readonly StartupRegistrar _startupRegistrar;
 
     private TaskbarIcon? _trayIcon;
     private MenuItem? _snoozeItem;
@@ -33,7 +34,8 @@ public sealed class TrayIconService : IHostedService, IDisposable
         Channel<BreakCommand> breakCommandChannel,
         ConfigManager configManager,
         IOptionsMonitor<AppSettings> options,
-        ICalendarClient calendarClient)
+        ICalendarClient calendarClient,
+        StartupRegistrar startupRegistrar)
     {
         _lifetime = lifetime;
         _logger = logger;
@@ -41,6 +43,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
         _configManager = configManager;
         _options = options;
         _calendarClient = calendarClient;
+        _startupRegistrar = startupRegistrar;
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
@@ -140,7 +143,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-            var win = new SettingsWindow(_configManager, _calendarClient);
+            var win = new SettingsWindow(_configManager, _calendarClient, _startupRegistrar);
             win.Show();
         });
     }

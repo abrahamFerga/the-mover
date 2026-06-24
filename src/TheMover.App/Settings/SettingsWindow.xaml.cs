@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Windows;
 using TheMover.App.Config;
+using TheMover.App.Shell;
 using TheMover.Calendar;
 using TheMover.Content;
 
@@ -11,11 +12,14 @@ public partial class SettingsWindow : Window
 {
     private readonly ConfigManager _configManager;
     private readonly ICalendarClient _calendarClient;
+    private readonly StartupRegistrar _startupRegistrar;
 
-    public SettingsWindow(ConfigManager configManager, ICalendarClient calendarClient)
+    public SettingsWindow(ConfigManager configManager, ICalendarClient calendarClient,
+        StartupRegistrar startupRegistrar)
     {
         _configManager = configManager;
         _calendarClient = calendarClient;
+        _startupRegistrar = startupRegistrar;
         InitializeComponent();
         Loaded += OnLoaded;
     }
@@ -118,6 +122,9 @@ public partial class SettingsWindow : Window
             return;
         }
         await _configManager.SaveAsync(settings);
+        // Sync the Windows startup registry entry with the saved preference.
+        var exePath = Environment.ProcessPath ?? string.Empty;
+        _startupRegistrar.SetStartupEnabled(settings.AutoStartWithWindows, exePath);
         Close();
     }
 
