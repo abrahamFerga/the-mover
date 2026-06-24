@@ -1,0 +1,36 @@
+---
+title: The Mover — C4 L3 Components (TheMover.App)
+---
+C4Component
+    title Component Diagram — TheMover.App
+
+    Container_Boundary(appContainer, "TheMover.App") {
+        Component(program, "Program", "Generic Host entry point", "HostApplicationBuilder setup: registers all IHostedService, IOptions<AppSettings>, WpfHostedService, ServiceDefaults")
+        Component(wpfHostedService, "WpfHostedService", "IHostedService", "Starts WPF Application on a dedicated STA thread; bridges Generic Host lifetime with WPF dispatcher loop")
+        Component(trayIconService, "TrayIconService", "IHostedService", "Owns NotifyIcon lifecycle; builds context menu (Open Settings, Snooze, Skip, Quit); subscribes to Channel<BreakDueEvent> to open overlay and log events")
+        Component(settingsWindow, "SettingsWindow", "WPF Window", "Tabbed settings UI: Break Schedule, Outlook Connection, About. Bound to live AppSettings snapshot. Saves via ConfigManager.")
+        Component(configManager, "ConfigManager", "Service", "Reads appsettings.json + appsettings.local.json; exposes IOptionsMonitor<AppSettings>; validates with DataAnnotations at startup")
+        Component(eventLogger, "EventLogger", "Service", "Appends JSONL records to %LOCALAPPDATA%\\TheMover\\events.jsonl; fire-and-forget; never throws on write failure")
+        Component(startupRegistrar, "StartupRegistrar", "Service", "Reads/writes HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run; called when AutoStartWithWindows toggle changes in settings")
+        Component(policies, "Policies", "Static class", "Defines policy-name constants (Schedule.Configure, Schedule.SkipBreak, etc.) for forward-compatibility")
+    }
+
+    Container_Ext(scheduler, "TheMover.Scheduler", "Produces BreakDueEvent; consumes BreakCommand")
+    Container_Ext(overlay, "TheMover.Overlay", "WPF overlay window opened by TrayIconService")
+    SystemDb_Ext(configFile, "appsettings.local.json")
+    SystemDb_Ext(eventLog, "events.jsonl")
+    SystemDb_Ext(registry, "Windows Registry (HKCU)")
+
+    Rel(program, configManager, "Registers IOptions")
+    Rel(program, trayIconService, "Registers IHostedService")
+    Rel(program, wpfHostedService, "Registers IHostedService")
+    Rel(program, eventLogger, "Registers singleton")
+    Rel(wpfHostedService, trayIconService, "Both run in host; communicate via DI")
+    Rel(trayIconService, settingsWindow, "Opens on 'Open Settings' menu item click")
+    Rel(trayIconService, overlay, "Opens WPF overlay on BreakDueEvent receipt")
+    Rel(trayIconService, eventLogger, "Log(BreakFired), Log(OverlayShown), Log(Snoozed), Log(Dismissed)")
+    Rel(settingsWindow, configManager, "Reads IOptionsSnapshot; writes on Save")
+    Rel(settingsWindow, startupRegistrar, "Calls SetStartupEnabled() when toggle changes")
+    Rel(configManager, configFile, "Read/write")
+    Rel(eventLogger, eventLog, "Append")
+    Rel(startupRegistrar, registry, "Read/write startup key")

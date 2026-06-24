@@ -1,0 +1,34 @@
+---
+title: The Mover — C4 L2 Containers
+---
+C4Container
+    title Container Diagram — The Mover (single Generic Host process)
+
+    Person(user, "Desk Worker / Configurator")
+
+    System_Boundary(hostProcess, "The Mover (Generic Host process)") {
+        Container(appHost, "TheMover.AppHost", ".NET Aspire AppHost", "Dev-time only — composes the app for OTel dashboard; not deployed to production")
+        Container(serviceDefaults, "TheMover.ServiceDefaults", ".NET class library", "AddServiceDefaults(): OTel traces/metrics, health checks, Polly defaults")
+        Container(app, "TheMover.App", "WPF + IHostedService", "Entry point. System tray (NotifyIcon), settings window, local config (IOptions<AppSettings>), event logger, startup registrar")
+        Container(scheduler, "TheMover.Scheduler", "IHostedService ×2", "BreakSchedulerService: two-tier timer, skip/snooze. IdleMonitorService: GetLastInputInfo poll every 30 s.")
+        Container(overlay, "TheMover.Overlay", "WPF Window", "Break overlay: countdown timer, Lottie animation (LottieSharp/SkiaSharp), Skip and Snooze buttons")
+        Container(content, "TheMover.Content", ".NET class library", "Exercise catalog loader (exercises.json → Exercise[]); rotation algorithm (no back-to-back repeats)")
+        Container(calendar, "TheMover.Calendar", "IHostedService", "CalendarPollerService: Microsoft Graph client, 60 s poll, Polly retry, Windows Credential Manager integration")
+    }
+
+    SystemDb_Ext(configFile, "appsettings.local.json", "User config (break intervals, snooze increment, Outlook toggle)")
+    SystemDb_Ext(eventLog, "events.jsonl", "Append-only structured event log (SPEC success metrics)")
+    System_Ext(credMgr, "Windows Credential Manager", "OAuth refresh token (DPAPI)")
+    System_Ext(graphApi, "Microsoft 365 Graph API", "Calendar read — Calendars.Read scope")
+
+    Rel(user, app, "Interacts via system tray icon and settings window")
+    Rel(app, configFile, "Read on startup; write on settings save")
+    Rel(app, eventLog, "Append BreakFired, OverlayShown, Snoozed, Dismissed, Heartbeat")
+    Rel(scheduler, app, "BreakDueEvent via Channel<BreakDueEvent> (capacity 1)")
+    Rel(app, scheduler, "SkipBreakCommand / SnoozeBreakCommand via Channel<BreakCommand>")
+    Rel(app, overlay, "Opens WPF window on BreakDueEvent; passes ExerciseId")
+    Rel(overlay, content, "GetNextExercise(lastShownId) on open")
+    Rel(calendar, credMgr, "Read/write TheMover.OutlookToken")
+    Rel(calendar, graphApi, "GET /me/calendarView", "HTTPS / Polly retry (3×, exponential backoff)")
+    Rel(calendar, scheduler, "Sets BreakTimerState.HeldForMeeting via shared singleton")
+    Rel(serviceDefaults, app, "Referenced by TheMover.App — AddServiceDefaults() in Program.cs")

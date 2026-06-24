@@ -1,0 +1,20 @@
+---
+title: The Mover — C4 L1 System Context
+---
+C4Context
+    title System Context — The Mover
+
+    Person(user, "Desk Worker / Configurator", "The OS-authenticated Windows user; receives break reminders and configures the app")
+
+    System(theMover, "The Mover", "Windows system-tray desktop application. Fires scheduled animated break reminders; suppresses them during active Outlook meetings; pauses when user is idle.")
+
+    System_Ext(graphApi, "Microsoft 365 Graph API", "Read-only calendar events (Calendars.Read scope). Polled every 60 s to detect active meetings.")
+    System_Ext(credMgr, "Windows Credential Manager", "DPAPI-encrypted store for the OAuth refresh token (TheMover.OutlookToken)")
+    System_Ext(registry, "Windows Registry (HKCU)", "Stores the startup registration entry under Software\\Microsoft\\Windows\\CurrentVersion\\Run")
+    System_Ext(localFs, "Local Filesystem", "%LOCALAPPDATA%\\TheMover\\ — appsettings.local.json + events.jsonl")
+
+    Rel(user, theMover, "Configures break schedules, receives overlay reminders, snoozes or dismisses breaks")
+    Rel(theMover, graphApi, "GET /me/calendarView (every 60 s)", "HTTPS / Polly retry")
+    Rel(theMover, credMgr, "Read / write OAuth refresh token", "DPAPI")
+    Rel(theMover, registry, "Read / write startup key")
+    Rel(theMover, localFs, "Read config on startup; append events continuously")
