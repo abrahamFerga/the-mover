@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -28,6 +29,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
     private TaskbarIcon? _trayIcon;
     private MenuItem? _snoozeItem;
     private MenuItem? _skipItem;
+    private DispatcherTimer? _countdownTimer;
 
     public TrayIconService(
         IHostApplicationLifetime lifetime,
@@ -62,6 +64,11 @@ public sealed class TrayIconService : IHostedService, IDisposable
                 ContextMenu = BuildContextMenu()
             };
             _trayIcon.TrayMouseDoubleClick += (_, _) => OpenSettings();
+
+            // Refresh the "Next break in X min" countdown every 30 s on the UI thread.
+            _countdownTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+            _countdownTimer.Tick += (_, _) => RefreshTooltip();
+            _countdownTimer.Start();
         });
         _logger.LogInformation("Tray icon initialized");
     }
@@ -157,9 +164,18 @@ public sealed class TrayIconService : IHostedService, IDisposable
             {
                 (true, _) => "The Mover — Paused (in meeting)",
                 (_, true) => "The Mover — Paused (idle)",
-                _ => "The Mover — Break reminder active"
+                _ => BuildActiveTooltip()
             };
         });
+    }
+
+    private string BuildActiveTooltip()
+    {
+        var remaining = _state.NextBreakAt - DateTimeOffset.UtcNow;
+        if (remaining <= TimeSpan.Zero)
+            return "The Mover — Break due";
+        var mins = (int)Math.Ceiling(remaining.TotalMinutes);
+        return $"The Mover — Next break in {mins} min";
     }
 
     private void OpenSettings()
@@ -183,10 +199,18 @@ public sealed class TrayIconService : IHostedService, IDisposable
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        Application.Current?.Dispatcher.Invoke(() => _trayIcon?.Dispose());
+        Application.Current?.Dispatcher.Invoke(() =>
+        {
+            _countdownTimer?.Stop();
+            _trayIcon?.Dispose();
+        });
         _logger.LogInformation("Tray icon disposed");
         return Task.CompletedTask;
     }
 
-    public void Dispose() => _trayIcon?.Dispose();
+    public void Dispose()
+    {
+        _countdownTimer?.Stop();
+        _trayIcon?.Dispose();
+    }
 }
