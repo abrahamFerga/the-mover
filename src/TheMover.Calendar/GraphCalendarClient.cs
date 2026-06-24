@@ -84,6 +84,12 @@ public sealed class GraphCalendarClient : ICalendarClient
             return false;  // network or auth error — graceful degradation (breaks fire normally)
         }
 
+        return await QueryGraphAsync(token, ct);
+    }
+
+    // Extracted so tests can drive the HTTP-response parsing without MSAL.
+    internal async Task<bool> QueryGraphAsync(string token, CancellationToken ct = default)
+    {
         try
         {
             var now = DateTimeOffset.UtcNow;
