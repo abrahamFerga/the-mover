@@ -87,6 +87,7 @@ builder.Services.AddHostedService<BreakCommandHandlerService>();
 builder.Services.AddHostedService<CalendarSyncService>();
 builder.Services.AddHostedService<IdleMonitorService>();
 builder.Services.AddHostedService<OverlayService>();
+builder.Services.AddHostedService<HeartbeatService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<TrayIconService>());
 
 var host = builder.Build();

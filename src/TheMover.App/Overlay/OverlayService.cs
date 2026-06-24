@@ -97,6 +97,11 @@ public sealed class OverlayService : BackgroundService
                 if (window.IsLoaded) window.Close();
             }));
 
+            _eventLogger.Log(AppEventType.OverlayShown, new Dictionary<string, object?>
+            {
+                ["tier"] = evt.Tier.ToString(),
+                ["exerciseId"] = exercise.Id
+            });
             window.Show();
         });
 
