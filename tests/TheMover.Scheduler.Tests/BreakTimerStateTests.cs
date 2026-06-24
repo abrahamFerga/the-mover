@@ -41,6 +41,23 @@ public sealed class BreakTimerStateTests
     }
 
     [Fact]
+    public void FiringTier_IsNullByDefault()
+    {
+        var state = new BreakTimerState();
+        Assert.Null(state.FiringTier);
+    }
+
+    [Fact]
+    public void FiringTier_CanBeSetAndCleared()
+    {
+        var state = new BreakTimerState();
+        state.FiringTier = BreakTier.Long;
+        Assert.Equal(BreakTier.Long, state.FiringTier);
+        state.FiringTier = null;
+        Assert.Null(state.FiringTier);
+    }
+
+    [Fact]
     public void BreakDueEvent_HasCorrectProperties()
     {
         var exerciseId = Guid.NewGuid();

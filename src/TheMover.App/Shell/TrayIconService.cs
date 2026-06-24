@@ -23,6 +23,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
     private readonly IOptionsMonitor<AppSettings> _options;
     private readonly ICalendarClient _calendarClient;
     private readonly StartupRegistrar _startupRegistrar;
+    private readonly BreakTimerState _state;
 
     private TaskbarIcon? _trayIcon;
     private MenuItem? _snoozeItem;
@@ -35,7 +36,8 @@ public sealed class TrayIconService : IHostedService, IDisposable
         ConfigManager configManager,
         IOptionsMonitor<AppSettings> options,
         ICalendarClient calendarClient,
-        StartupRegistrar startupRegistrar)
+        StartupRegistrar startupRegistrar,
+        BreakTimerState state)
     {
         _lifetime = lifetime;
         _logger = logger;
@@ -44,6 +46,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
         _options = options;
         _calendarClient = calendarClient;
         _startupRegistrar = startupRegistrar;
+        _state = state;
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
@@ -102,7 +105,9 @@ public sealed class TrayIconService : IHostedService, IDisposable
 
     private void OnSkipClick(object sender, RoutedEventArgs e)
     {
-        _breakCommandChannel.Writer.TryWrite(new SkipBreakCommand());
+        // Use FiringTier so the Dismissed log records the actual break tier shown,
+        // not null ("Unknown") — state.Tier is already the NEXT break by this point.
+        _breakCommandChannel.Writer.TryWrite(new SkipBreakCommand(_state.FiringTier));
         HideBreakActions();
     }
 

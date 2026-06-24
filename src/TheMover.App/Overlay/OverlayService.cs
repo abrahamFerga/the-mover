@@ -70,6 +70,8 @@ public sealed class OverlayService : BackgroundService
             var tierLabel = evt.Tier == BreakTier.Long ? "Long break" : "Micro-break";
             var exercise = _picker.Pick();
 
+            _state.FiringTier = evt.Tier;
+
             var window = new OverlayWindow(
                 tierLabel: tierLabel,
                 durationSeconds: duration,
@@ -93,6 +95,7 @@ public sealed class OverlayService : BackgroundService
 
             window.Closed += (_, _) =>
             {
+                _state.FiringTier = null;
                 _tray.HideBreakActions();
                 tcs.TrySetResult();
             };
