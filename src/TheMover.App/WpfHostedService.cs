@@ -1,4 +1,5 @@
 // TheMover.App — ARCH.md: SPA architecture / WPF hosting pattern (ADR-0005)
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TheMover.App.Config;
+using TheMover.App.Logging;
 using TheMover.App.Shell;
 
 namespace TheMover.App;
@@ -14,6 +16,9 @@ public sealed class WpfHostedService(
     IServiceProvider services,
     ILogger<WpfHostedService> logger) : IHostedService
 {
+    private static readonly string LocalDataDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TheMover");
+
     private Thread? _uiThread;
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -42,6 +47,24 @@ public sealed class WpfHostedService(
                 var registrar = services.GetRequiredService<StartupRegistrar>();
                 var exePath = Environment.ProcessPath ?? string.Empty;
                 registrar.SetStartupEnabled(settings.AutoStartWithWindows, exePath);
+
+                // SPEC: Setup completion rate — log once on the very first launch.
+                var stampPath = Path.Combine(LocalDataDir, "firstrun.stamp");
+                if (!File.Exists(stampPath))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(LocalDataDir);
+                        var eventLogger = services.GetRequiredService<EventLogger>();
+                        eventLogger.Log(AppEventType.FirstRunCompleted);
+                        File.WriteAllText(stampPath, DateTimeOffset.UtcNow.ToString("O"));
+                        logger.LogInformation("First-run event logged");
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Could not write first-run stamp");
+                    }
+                }
             };
 
             app.Run();

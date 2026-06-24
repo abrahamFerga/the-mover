@@ -3,6 +3,7 @@ namespace TheMover.App.Logging;
 
 public enum AppEventType
 {
+    FirstRunCompleted,
     BreakFired,
     OverlayShown,
     BreakCompleted,
