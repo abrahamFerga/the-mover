@@ -37,8 +37,9 @@ public sealed class GraphCalendarClient : ICalendarClient
     private async Task AttachTokenCacheAsync()
     {
         Directory.CreateDirectory(_cacheDir);
+        // On Windows, MsalCacheHelper applies DPAPI encryption by default — satisfies SPEC
+        // requirement that the refresh token must not be stored in a plaintext file.
         var storageProps = new StorageCreationPropertiesBuilder(CacheFileName, _cacheDir)
-            .WithUnprotectedFile()   // DPAPI not available on Linux; on Windows the cache dir is user-scoped
             .Build();
         var helper = await MsalCacheHelper.CreateAsync(storageProps);
         helper.RegisterCache(_pca.UserTokenCache);
