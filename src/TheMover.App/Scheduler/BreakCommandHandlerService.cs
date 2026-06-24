@@ -38,7 +38,7 @@ public sealed class BreakCommandHandlerService : BackgroundService
             switch (command)
             {
                 case SnoozeBreakCommand snooze:
-                    HandleSnooze(snooze.Minutes);
+                    HandleSnooze(snooze.Minutes, snooze.Source);
                     break;
 
                 case SkipBreakCommand skip:
@@ -48,7 +48,7 @@ public sealed class BreakCommandHandlerService : BackgroundService
         }
     }
 
-    private void HandleSnooze(int minutes)
+    private void HandleSnooze(int minutes, string? source)
     {
         var now = DateTimeOffset.UtcNow;
         var settings = _options.CurrentValue;
@@ -62,8 +62,12 @@ public sealed class BreakCommandHandlerService : BackgroundService
             - TimeSpan.FromMinutes(settings.LongBreak.IntervalMinutes)
             + TimeSpan.FromMinutes(minutes);
         _state.SnoozedUntil = now.AddMinutes(minutes);
-        _eventLogger.Log(AppEventType.Snoozed, new Dictionary<string, object?> { ["minutes"] = minutes });
-        _logger.LogInformation("Break snoozed for {Minutes} min", minutes);
+        _eventLogger.Log(AppEventType.Snoozed, new Dictionary<string, object?>
+        {
+            ["minutes"] = minutes,
+            ["source"] = source ?? "tray"
+        });
+        _logger.LogInformation("Break snoozed for {Minutes} min (source: {Source})", minutes, source ?? "tray");
     }
 
     private void HandleSkip(BreakTier? tier, bool isCompletion)
