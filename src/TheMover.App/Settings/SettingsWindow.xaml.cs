@@ -148,6 +148,11 @@ public partial class SettingsWindow : Window
         if (!int.TryParse(LongDurationBox.Text, out var longDuration) || longDuration < 10 || longDuration > 600)
         { error = "Long-break duration must be between 10 and 600 seconds."; return false; }
 
+        // Micro must fire more often than long, otherwise the long-break timer fires first
+        // every time and micro breaks never occur.
+        if (microInterval >= longInterval)
+        { error = "Micro-break interval must be shorter than the long-break interval."; return false; }
+
         var current = _configManager.Current;
         settings = new AppSettings
         {
