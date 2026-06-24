@@ -127,6 +127,75 @@ public sealed class BreakCommandHandlerTests
     }
 
     [Fact]
+    public async Task Snooze_LogsSourceFromCommand()
+    {
+        var logPath = Path.Combine(Path.GetTempPath(), $"snooze-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var commands = Channel.CreateUnbounded<BreakCommand>();
+            var state = new BreakTimerState();
+            var settings = new AppSettings
+            {
+                MicroBreak = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 30 },
+                LongBreak = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
+                Snooze = new SnoozeSettings { IncrementMinutes = 5 }
+            };
+            var handler = new BreakCommandHandlerService(
+                commands, state,
+                new EventLogger(logPath, NullLogger<EventLogger>.Instance),
+                new OptionsMonitorStub(settings),
+                NullLogger<BreakCommandHandlerService>.Instance);
+
+            commands.Writer.TryWrite(new SnoozeBreakCommand(5, Source: "overlay"));
+            commands.Writer.Complete();
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            await handler.StartAsync(cts.Token);
+            await Task.Delay(100, cts.Token).ContinueWith(_ => { });
+
+            var log = File.ReadAllText(logPath);
+            Assert.Contains("\"event\":\"Snoozed\"", log);
+            Assert.Contains("\"source\":\"overlay\"", log);
+            Assert.Contains("\"minutes\":5", log);
+        }
+        finally { if (File.Exists(logPath)) File.Delete(logPath); }
+    }
+
+    [Fact]
+    public async Task Snooze_WithNoSource_LogsTraySouce()
+    {
+        var logPath = Path.Combine(Path.GetTempPath(), $"snooze-tray-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var commands = Channel.CreateUnbounded<BreakCommand>();
+            var state = new BreakTimerState();
+            var settings = new AppSettings
+            {
+                MicroBreak = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 30 },
+                LongBreak = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
+                Snooze = new SnoozeSettings { IncrementMinutes = 5 }
+            };
+            var handler = new BreakCommandHandlerService(
+                commands, state,
+                new EventLogger(logPath, NullLogger<EventLogger>.Instance),
+                new OptionsMonitorStub(settings),
+                NullLogger<BreakCommandHandlerService>.Instance);
+
+            // No Source = tray default
+            commands.Writer.TryWrite(new SnoozeBreakCommand(5));
+            commands.Writer.Complete();
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            await handler.StartAsync(cts.Token);
+            await Task.Delay(100, cts.Token).ContinueWith(_ => { });
+
+            var log = File.ReadAllText(logPath);
+            Assert.Contains("\"source\":\"tray\"", log);
+        }
+        finally { if (File.Exists(logPath)) File.Delete(logPath); }
+    }
+
+    [Fact]
     public async Task Skip_LogsDismissedWithTierFromCommand_NotFromState()
     {
         var logPath = Path.Combine(Path.GetTempPath(), $"skip-{Guid.NewGuid():N}.jsonl");
