@@ -11,37 +11,49 @@ public sealed class GraphCalendarClient : ICalendarClient
 {
     private static readonly string[] Scopes = ["Calendars.Read"];
     private const string CacheFileName = "the-mover.token.cache";
-    private const string CacheDir = ".";  // resolved to %LOCALAPPDATA%\TheMover\ at runtime
 
-    private readonly IPublicClientApplication _pca;
     private readonly HttpClient _http;
     private readonly string _cacheDir;
+    // Optional factory: when set, ConnectAsync rebuilds the PCA from the latest
+    // credentials so Settings changes take effect without an app restart.
+    private readonly Func<(string clientId, string tenantId)>? _getCredentials;
+    private IPublicClientApplication _pca;
 
     public GraphCalendarClient(string clientId, string tenantId, HttpClient httpClient)
+        : this(clientId, tenantId, httpClient, getCredentials: null) { }
+
+    // Extended constructor: pass a credential factory so DI callers can supply
+    // live settings without importing Microsoft.Extensions.Options into this library.
+    public GraphCalendarClient(
+        string clientId, string tenantId, HttpClient httpClient,
+        Func<(string clientId, string tenantId)>? getCredentials)
     {
         _http = httpClient;
+        _getCredentials = getCredentials;
         _cacheDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "TheMover");
 
-        _pca = PublicClientApplicationBuilder
+        _pca = BuildPca(clientId, tenantId);
+        AttachTokenCacheAsync(_pca).GetAwaiter().GetResult();
+    }
+
+    private IPublicClientApplication BuildPca(string clientId, string tenantId) =>
+        PublicClientApplicationBuilder
             .Create(clientId)
             .WithTenantId(tenantId)
             .WithRedirectUri("http://localhost")
             .Build();
 
-        // Attach a DPAPI-encrypted token cache (Windows Credential Manager equivalent per ADR)
-        AttachTokenCacheAsync().GetAwaiter().GetResult();
-    }
-
-    private async Task AttachTokenCacheAsync()
+    private async Task AttachTokenCacheAsync(IPublicClientApplication pca)
     {
         Directory.CreateDirectory(_cacheDir);
+        // On Windows, MsalCacheHelper applies DPAPI encryption by default — satisfies SPEC
+        // requirement that the refresh token must not be stored in a plaintext file.
         var storageProps = new StorageCreationPropertiesBuilder(CacheFileName, _cacheDir)
-            .WithUnprotectedFile()   // DPAPI not available on Linux; on Windows the cache dir is user-scoped
             .Build();
         var helper = await MsalCacheHelper.CreateAsync(storageProps);
-        helper.RegisterCache(_pca.UserTokenCache);
+        helper.RegisterCache(pca.UserTokenCache);
     }
 
     public async Task<bool> IsConnectedAsync(CancellationToken ct = default)
@@ -52,6 +64,15 @@ public sealed class GraphCalendarClient : ICalendarClient
 
     public async Task ConnectAsync(CancellationToken ct = default)
     {
+        // Rebuild the PCA from the latest credentials so that credentials saved
+        // in Settings are honoured immediately without an app restart.
+        if (_getCredentials is not null)
+        {
+            var (clientId, tenantId) = _getCredentials();
+            _pca = BuildPca(clientId, tenantId);
+            await AttachTokenCacheAsync(_pca);
+        }
+
         await _pca.AcquireTokenInteractive(Scopes)
             .WithUseEmbeddedWebView(false)
             .ExecuteAsync(ct);
@@ -84,6 +105,12 @@ public sealed class GraphCalendarClient : ICalendarClient
             return false;  // network or auth error — graceful degradation (breaks fire normally)
         }
 
+        return await QueryGraphAsync(token, ct);
+    }
+
+    // Extracted so tests can drive the HTTP-response parsing without MSAL.
+    internal async Task<bool> QueryGraphAsync(string token, CancellationToken ct = default)
+    {
         try
         {
             var now = DateTimeOffset.UtcNow;

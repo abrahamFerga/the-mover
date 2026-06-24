@@ -64,6 +64,9 @@ public sealed class BreakSchedulerService : BackgroundService
             return true;
         }
 
+        // Keep NextBreakAt in sync every tick so the tray countdown reflects
+        // any settings change made while the app is running.
+        SyncNextBreak(now);
         return false;
     }
 
@@ -71,7 +74,7 @@ public sealed class BreakSchedulerService : BackgroundService
     {
         _state.Tier = tier;
         _state.NextBreakAt = firedAt;
-        await _channel.Writer.WriteAsync(new BreakDueEvent(tier, firedAt, Guid.Empty));
+        await _channel.Writer.WriteAsync(new BreakDueEvent(tier, firedAt));
         _logger.LogInformation("Break due: {Tier}", tier);
     }
 

@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -22,10 +23,13 @@ public sealed class TrayIconService : IHostedService, IDisposable
     private readonly ConfigManager _configManager;
     private readonly IOptionsMonitor<AppSettings> _options;
     private readonly ICalendarClient _calendarClient;
+    private readonly StartupRegistrar _startupRegistrar;
+    private readonly BreakTimerState _state;
 
     private TaskbarIcon? _trayIcon;
     private MenuItem? _snoozeItem;
     private MenuItem? _skipItem;
+    private DispatcherTimer? _countdownTimer;
 
     public TrayIconService(
         IHostApplicationLifetime lifetime,
@@ -33,7 +37,9 @@ public sealed class TrayIconService : IHostedService, IDisposable
         Channel<BreakCommand> breakCommandChannel,
         ConfigManager configManager,
         IOptionsMonitor<AppSettings> options,
-        ICalendarClient calendarClient)
+        ICalendarClient calendarClient,
+        StartupRegistrar startupRegistrar,
+        BreakTimerState state)
     {
         _lifetime = lifetime;
         _logger = logger;
@@ -41,6 +47,8 @@ public sealed class TrayIconService : IHostedService, IDisposable
         _configManager = configManager;
         _options = options;
         _calendarClient = calendarClient;
+        _startupRegistrar = startupRegistrar;
+        _state = state;
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
@@ -56,6 +64,11 @@ public sealed class TrayIconService : IHostedService, IDisposable
                 ContextMenu = BuildContextMenu()
             };
             _trayIcon.TrayMouseDoubleClick += (_, _) => OpenSettings();
+
+            // Refresh the "Next break in X min" countdown every 30 s on the UI thread.
+            _countdownTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+            _countdownTimer.Tick += (_, _) => RefreshTooltip();
+            _countdownTimer.Start();
         });
         _logger.LogInformation("Tray icon initialized");
     }
@@ -99,7 +112,9 @@ public sealed class TrayIconService : IHostedService, IDisposable
 
     private void OnSkipClick(object sender, RoutedEventArgs e)
     {
-        _breakCommandChannel.Writer.TryWrite(new SkipBreakCommand());
+        // Use FiringTier so the Dismissed log records the actual break tier shown,
+        // not null ("Unknown") — state.Tier is already the NEXT break by this point.
+        _breakCommandChannel.Writer.TryWrite(new SkipBreakCommand(_state.FiringTier));
         HideBreakActions();
     }
 
@@ -125,22 +140,53 @@ public sealed class TrayIconService : IHostedService, IDisposable
         });
     }
 
+    private bool _isIdle;
+    private bool _inMeeting;
+
     public void UpdateTooltip(bool paused)
+    {
+        _isIdle = paused;
+        RefreshTooltip();
+    }
+
+    public void UpdateMeetingTooltip(bool inMeeting)
+    {
+        _inMeeting = inMeeting;
+        RefreshTooltip();
+    }
+
+    private void RefreshTooltip()
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
             if (_trayIcon is null) return;
-            _trayIcon.ToolTipText = paused
-                ? "The Mover — Paused (idle)"
-                : "The Mover — Break reminder active";
+            _trayIcon.ToolTipText = (_inMeeting, _isIdle) switch
+            {
+                (true, _) => "The Mover — Paused (in meeting)",
+                (_, true) => "The Mover — Paused (idle)",
+                _ => BuildActiveTooltip()
+            };
         });
+    }
+
+    private string BuildActiveTooltip()
+    {
+        // Guard against the DateTimeOffset.MaxValue default before the scheduler
+        // has called SyncNextBreak — casting MaxValue.TotalMinutes to int overflows.
+        if (_state.NextBreakAt == DateTimeOffset.MaxValue)
+            return "The Mover — Break reminder active";
+        var remaining = _state.NextBreakAt - DateTimeOffset.UtcNow;
+        if (remaining <= TimeSpan.Zero)
+            return "The Mover — Break due";
+        var mins = (int)Math.Ceiling(remaining.TotalMinutes);
+        return $"The Mover — Next break in {mins} min";
     }
 
     private void OpenSettings()
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-            var win = new SettingsWindow(_configManager, _calendarClient);
+            var win = new SettingsWindow(_configManager, _calendarClient, _startupRegistrar);
             win.Show();
         });
     }
@@ -157,10 +203,18 @@ public sealed class TrayIconService : IHostedService, IDisposable
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        Application.Current?.Dispatcher.Invoke(() => _trayIcon?.Dispose());
+        Application.Current?.Dispatcher.Invoke(() =>
+        {
+            _countdownTimer?.Stop();
+            _trayIcon?.Dispose();
+        });
         _logger.LogInformation("Tray icon disposed");
         return Task.CompletedTask;
     }
 
-    public void Dispose() => _trayIcon?.Dispose();
+    public void Dispose()
+    {
+        _countdownTimer?.Stop();
+        _trayIcon?.Dispose();
+    }
 }

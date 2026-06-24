@@ -76,6 +76,69 @@ public sealed class CalendarSyncServiceTests
         Assert.False(state.HeldForMeeting);
     }
 
+    [Fact]
+    public async Task WhenClientThrows_AndWasInMeeting_InvokesTooltipCallbackFalse()
+    {
+        var settings = new AppSettings { Calendar = new CalendarSettings { Enabled = true } };
+        var client = new ThrowingCalendarClient();
+        var state = new BreakTimerState { HeldForMeeting = true };
+        var updates = new List<bool>();
+        var svc = new CalendarSyncService(client, state, new OptionsMonitorStub(settings),
+            NullLogger<CalendarSyncService>.Instance, updateMeetingTooltip: updates.Add);
+
+        await svc.PollAsync();
+
+        Assert.Single(updates);
+        Assert.False(updates[0]);
+    }
+
+    [Fact]
+    public async Task WhenMeetingStateChanges_InvokesTooltipCallback()
+    {
+        var settings = new AppSettings { Calendar = new CalendarSettings { Enabled = true } };
+        var client = new FakeCalendarClient(isConnected: true, inMeeting: true);
+        var state = new BreakTimerState();
+        var updates = new List<bool>();
+        var svc = new CalendarSyncService(client, state, new OptionsMonitorStub(settings),
+            NullLogger<CalendarSyncService>.Instance, updateMeetingTooltip: updates.Add);
+
+        await svc.PollAsync();
+
+        Assert.Single(updates);
+        Assert.True(updates[0]);
+    }
+
+    [Fact]
+    public async Task WhenMeetingStateUnchanged_DoesNotInvokeTooltipCallback()
+    {
+        var settings = new AppSettings { Calendar = new CalendarSettings { Enabled = true } };
+        var client = new FakeCalendarClient(isConnected: true, inMeeting: false);
+        var state = new BreakTimerState { HeldForMeeting = false };
+        var updates = new List<bool>();
+        var svc = new CalendarSyncService(client, state, new OptionsMonitorStub(settings),
+            NullLogger<CalendarSyncService>.Instance, updateMeetingTooltip: updates.Add);
+
+        await svc.PollAsync();
+
+        Assert.Empty(updates);
+    }
+
+    [Fact]
+    public async Task WhenDisabledAndWasInMeeting_InvokesTooltipCallbackFalse()
+    {
+        var settings = new AppSettings { Calendar = new CalendarSettings { Enabled = false } };
+        var client = new FakeCalendarClient(isConnected: true, inMeeting: true);
+        var state = new BreakTimerState { HeldForMeeting = true };
+        var updates = new List<bool>();
+        var svc = new CalendarSyncService(client, state, new OptionsMonitorStub(settings),
+            NullLogger<CalendarSyncService>.Instance, updateMeetingTooltip: updates.Add);
+
+        await svc.PollAsync();
+
+        Assert.Single(updates);
+        Assert.False(updates[0]);
+    }
+
     // -----------------------------------------------------------------------
 
     private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>

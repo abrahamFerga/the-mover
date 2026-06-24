@@ -50,6 +50,9 @@ public sealed class OverlayService : BackgroundService
         {
             _eventLogger.Log(AppEventType.BreakFired, new Dictionary<string, object?> { ["tier"] = evt.Tier.ToString() });
             _logger.LogInformation("Break due: {Tier}", evt.Tier);
+            // Set FiringTier BEFORE ShowBreakActions so a tray skip during this
+            // window always reads the correct tier rather than null ("Unknown").
+            _state.FiringTier = evt.Tier;
             _tray.ShowBreakActions();
 
             await ShowOverlayAsync(evt, stoppingToken);
@@ -74,29 +77,45 @@ public sealed class OverlayService : BackgroundService
                 tierLabel: tierLabel,
                 durationSeconds: duration,
                 exercise: exercise,
+                onComplete: () =>
+                {
+                    _eventLogger.Log(AppEventType.BreakCompleted, new Dictionary<string, object?> { ["tier"] = evt.Tier.ToString() });
+                    _breakCommandChannel.Writer.TryWrite(new SkipBreakCommand(evt.Tier, IsCompletion: true));
+                    _tray.HideBreakActions();
+                },
                 onSnooze: () =>
                 {
-                    _breakCommandChannel.Writer.TryWrite(new SnoozeBreakCommand(snoozeMinutes));
+                    _breakCommandChannel.Writer.TryWrite(new SnoozeBreakCommand(snoozeMinutes, Source: "overlay"));
                     _tray.HideBreakActions();
-                    _eventLogger.Log(AppEventType.Snoozed, new Dictionary<string, object?> { ["source"] = "overlay" });
                 },
                 onSkip: () =>
                 {
-                    _breakCommandChannel.Writer.TryWrite(new SkipBreakCommand());
+                    _breakCommandChannel.Writer.TryWrite(new SkipBreakCommand(evt.Tier));
                     _tray.HideBreakActions();
                 });
 
-            window.Closed += (_, _) =>
-            {
-                _tray.HideBreakActions();
-                tcs.TrySetResult();
-            };
-
-            using var reg = ct.Register(() => Application.Current.Dispatcher.Invoke(() =>
+            // Keep the registration alive until the window closes so that shutdown
+            // cancellation reliably triggers window.Close() even if ct fires while
+            // the overlay is still visible.  If using var were used here, the
+            // registration would be disposed the moment Dispatcher.Invoke returns.
+            var reg = ct.Register(() => Application.Current?.Dispatcher.Invoke(() =>
             {
                 if (window.IsLoaded) window.Close();
             }));
 
+            window.Closed += (_, _) =>
+            {
+                _state.FiringTier = null;
+                _tray.HideBreakActions();
+                reg.Dispose();
+                tcs.TrySetResult();
+            };
+
+            _eventLogger.Log(AppEventType.OverlayShown, new Dictionary<string, object?>
+            {
+                ["tier"] = evt.Tier.ToString(),
+                ["exerciseId"] = exercise.Id
+            });
             window.Show();
         });
 

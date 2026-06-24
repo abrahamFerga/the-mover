@@ -1,5 +1,6 @@
 // TheMover.App.Tests — IdleMonitorService idle detection / resume logic
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Win32;
 using TheMover.App.Idle;
 using TheMover.Scheduler;
 
@@ -128,5 +129,50 @@ public sealed class IdleMonitorServiceTests
         svc.CheckIdle(); // second call while still idle
 
         Assert.Single(tooltipCalls);
+    }
+
+    [Fact]
+    public void OnSuspend_SetsIdleDetectedAtAndTooltipPaused()
+    {
+        var (svc, state, tooltipCalls) = Build(TimeSpan.Zero);
+
+        svc.OnPowerModeChanged(this, new PowerModeChangedEventArgs(PowerModes.Suspend));
+
+        Assert.NotNull(state.IdleDetectedAt);
+        Assert.True(state.IsPaused);
+        Assert.Contains(true, tooltipCalls);
+    }
+
+    [Fact]
+    public void OnResume_ClearsIdleAndResetsBreakIntervals()
+    {
+        var state = new BreakTimerState
+        {
+            IdleDetectedAt = DateTimeOffset.UtcNow,
+            LastMicroBreakAt = DateTimeOffset.UtcNow.AddHours(-3),
+            LastLongBreakAt = DateTimeOffset.UtcNow.AddHours(-3)
+        };
+        var svc = new IdleMonitorService(state, () => TimeSpan.Zero, _ => { },
+            NullLogger<IdleMonitorService>.Instance);
+
+        svc.OnPowerModeChanged(this, new PowerModeChangedEventArgs(PowerModes.Resume));
+
+        Assert.Null(state.IdleDetectedAt);
+        Assert.False(state.IsPaused);
+        Assert.True(state.LastMicroBreakAt > DateTimeOffset.UtcNow.AddSeconds(-5));
+        Assert.True(state.LastLongBreakAt > DateTimeOffset.UtcNow.AddSeconds(-5));
+    }
+
+    [Fact]
+    public void OnResume_UpdatesTooltipActive()
+    {
+        var tooltipCalls = new List<bool>();
+        var state = new BreakTimerState { IdleDetectedAt = DateTimeOffset.UtcNow };
+        var svc = new IdleMonitorService(state, () => TimeSpan.Zero,
+            paused => tooltipCalls.Add(paused), NullLogger<IdleMonitorService>.Instance);
+
+        svc.OnPowerModeChanged(this, new PowerModeChangedEventArgs(PowerModes.Resume));
+
+        Assert.Contains(false, tooltipCalls);
     }
 }

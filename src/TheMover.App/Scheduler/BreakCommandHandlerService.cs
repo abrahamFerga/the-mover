@@ -38,30 +38,50 @@ public sealed class BreakCommandHandlerService : BackgroundService
             switch (command)
             {
                 case SnoozeBreakCommand snooze:
-                    HandleSnooze(snooze.Minutes);
+                    HandleSnooze(snooze.Minutes, snooze.Source);
                     break;
 
-                case SkipBreakCommand:
-                    HandleSkip();
+                case SkipBreakCommand skip:
+                    HandleSkip(skip.Tier, skip.IsCompletion);
                     break;
             }
         }
     }
 
-    private void HandleSnooze(int minutes)
+    private void HandleSnooze(int minutes, string? source)
     {
-        _state.SnoozedUntil = DateTimeOffset.UtcNow.AddMinutes(minutes);
-        _eventLogger.Log(AppEventType.Snoozed, new Dictionary<string, object?> { ["minutes"] = minutes });
-        _logger.LogInformation("Break snoozed for {Minutes} min", minutes);
+        var now = DateTimeOffset.UtcNow;
+        var settings = _options.CurrentValue;
+        // Shift break timestamps back so the reminder re-fires when the snooze expires,
+        // not a full interval later.  Without this, a 5-min snooze on a 20-min micro
+        // cycle would delay the next reminder by 25 minutes instead of 5.
+        _state.LastMicroBreakAt = now
+            - TimeSpan.FromMinutes(settings.MicroBreak.IntervalMinutes)
+            + TimeSpan.FromMinutes(minutes);
+        _state.LastLongBreakAt = now
+            - TimeSpan.FromMinutes(settings.LongBreak.IntervalMinutes)
+            + TimeSpan.FromMinutes(minutes);
+        _state.SnoozedUntil = now.AddMinutes(minutes);
+        _eventLogger.Log(AppEventType.Snoozed, new Dictionary<string, object?>
+        {
+            ["minutes"] = minutes,
+            ["source"] = source ?? "tray"
+        });
+        _logger.LogInformation("Break snoozed for {Minutes} min (source: {Source})", minutes, source ?? "tray");
     }
 
-    private void HandleSkip()
+    private void HandleSkip(BreakTier? tier, bool isCompletion)
     {
         var now = DateTimeOffset.UtcNow;
         _state.SnoozedUntil = null;
         _state.LastMicroBreakAt = now;
         _state.LastLongBreakAt = now;
-        _eventLogger.Log(AppEventType.Dismissed, new Dictionary<string, object?> { ["tier"] = _state.Tier.ToString() });
-        _logger.LogInformation("Break skipped (tier: {Tier})", _state.Tier);
+        if (!isCompletion)
+        {
+            // Use the tier from the command (state.Tier is already the NEXT break by now).
+            var tierName = tier?.ToString() ?? "Unknown";
+            _eventLogger.Log(AppEventType.Dismissed, new Dictionary<string, object?> { ["tier"] = tierName });
+            _logger.LogInformation("Break skipped (tier: {Tier})", tierName);
+        }
     }
 }

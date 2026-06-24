@@ -5,20 +5,31 @@ using Microsoft.Extensions.Logging;
 
 namespace TheMover.App.Logging;
 
-public sealed class EventLogger(ILogger<EventLogger> logger)
+public sealed class EventLogger
 {
-    private static readonly string LogPath = Path.Combine(
+    private static readonly JsonSerializerOptions Opts =
+        new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+    private readonly string _logPath;
+    private readonly ILogger<EventLogger> _logger;
+
+    private static string DefaultLogPath() => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "TheMover", "events.jsonl");
 
-    private static readonly JsonSerializerOptions Opts =
-        new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    public EventLogger(ILogger<EventLogger> logger) : this(DefaultLogPath(), logger) { }
+
+    internal EventLogger(string logPath, ILogger<EventLogger> logger)
+    {
+        _logPath = logPath;
+        _logger = logger;
+    }
 
     public void Log(AppEventType eventType, object? extra = null)
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(_logPath)!);
             var record = new Dictionary<string, object?>
             {
                 ["ts"] = DateTimeOffset.UtcNow.ToString("O"),
@@ -28,11 +39,11 @@ public sealed class EventLogger(ILogger<EventLogger> logger)
             {
                 foreach (var (k, v) in d) record[k] = v;
             }
-            File.AppendAllText(LogPath, JsonSerializer.Serialize(record, Opts) + "\n");
+            File.AppendAllText(_logPath, JsonSerializer.Serialize(record, Opts) + "\n");
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to append event log entry for {Event}", eventType);
+            _logger.LogWarning(ex, "Failed to append event log entry for {Event}", eventType);
         }
     }
 }

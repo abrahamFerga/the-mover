@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Win32;
 using TheMover.App.Shell;
 using TheMover.Scheduler;
 
@@ -37,14 +38,43 @@ public sealed class IdleMonitorService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(PollIntervalSeconds));
-        while (!stoppingToken.IsCancellationRequested)
+        SystemEvents.PowerModeChanged += OnPowerModeChanged;
+        try
         {
-            CheckIdle();
-            try { await timer.WaitForNextTickAsync(stoppingToken); }
-            catch (OperationCanceledException) { break; }
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(PollIntervalSeconds));
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                CheckIdle();
+                try { await timer.WaitForNextTickAsync(stoppingToken); }
+                catch (OperationCanceledException) { break; }
+            }
         }
-        _state.IdleDetectedAt = null;
+        finally
+        {
+            SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+            _state.IdleDetectedAt = null;
+        }
+    }
+
+    // On suspend: treat as idle so break intervals reset on resume.
+    // On resume: clear idle so breaks don't fire the moment the lid opens.
+    internal void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (e.Mode == PowerModes.Suspend)
+        {
+            _state.IdleDetectedAt = now;
+            _updateTooltip(true);
+            _logger.LogInformation("System suspending — treating as idle");
+        }
+        else if (e.Mode == PowerModes.Resume)
+        {
+            _state.IdleDetectedAt = null;
+            _state.LastMicroBreakAt = now;
+            _state.LastLongBreakAt = now;
+            _updateTooltip(false);
+            _logger.LogInformation("System resumed — break intervals reset");
+        }
     }
 
     internal void CheckIdle()
