@@ -15,9 +15,6 @@ public sealed class BreakSchedulerService : BackgroundService
     private readonly BreakTimerState _state;
     private readonly ILogger<BreakSchedulerService> _logger;
 
-    internal DateTimeOffset LastMicroBreakAt { get; set; }
-    internal DateTimeOffset LastLongBreakAt { get; set; }
-
     public BreakSchedulerService(
         IOptionsMonitor<AppSettings> options,
         Channel<BreakDueEvent> channel,
@@ -28,10 +25,6 @@ public sealed class BreakSchedulerService : BackgroundService
         _channel = channel;
         _state = state;
         _logger = logger;
-
-        var now = DateTimeOffset.UtcNow;
-        LastMicroBreakAt = now;
-        LastLongBreakAt = now;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -54,19 +47,19 @@ public sealed class BreakSchedulerService : BackgroundService
         var longInterval = TimeSpan.FromMinutes(settings.LongBreak.IntervalMinutes);
         var microInterval = TimeSpan.FromMinutes(settings.MicroBreak.IntervalMinutes);
 
-        if (now - LastLongBreakAt >= longInterval)
+        if (now - _state.LastLongBreakAt >= longInterval)
         {
             await FireAsync(BreakTier.Long, now);
-            LastLongBreakAt = now;
-            LastMicroBreakAt = now;
+            _state.LastLongBreakAt = now;
+            _state.LastMicroBreakAt = now;
             SyncNextBreak(now);
             return true;
         }
 
-        if (now - LastMicroBreakAt >= microInterval)
+        if (now - _state.LastMicroBreakAt >= microInterval)
         {
             await FireAsync(BreakTier.Micro, now);
-            LastMicroBreakAt = now;
+            _state.LastMicroBreakAt = now;
             SyncNextBreak(now);
             return true;
         }
@@ -85,8 +78,8 @@ public sealed class BreakSchedulerService : BackgroundService
     private void SyncNextBreak(DateTimeOffset now)
     {
         var settings = _options.CurrentValue;
-        var nextMicro = LastMicroBreakAt + TimeSpan.FromMinutes(settings.MicroBreak.IntervalMinutes);
-        var nextLong = LastLongBreakAt + TimeSpan.FromMinutes(settings.LongBreak.IntervalMinutes);
+        var nextMicro = _state.LastMicroBreakAt + TimeSpan.FromMinutes(settings.MicroBreak.IntervalMinutes);
+        var nextLong = _state.LastLongBreakAt + TimeSpan.FromMinutes(settings.LongBreak.IntervalMinutes);
         _state.NextBreakAt = nextMicro <= nextLong ? nextMicro : nextLong;
         _state.Tier = nextMicro <= nextLong ? BreakTier.Micro : BreakTier.Long;
     }

@@ -10,7 +10,7 @@ namespace TheMover.App.Tests.Scheduler;
 
 public sealed class BreakSchedulerServiceTests
 {
-    private static (BreakSchedulerService Service, Channel<BreakDueEvent> Channel) BuildService(
+    private static (BreakSchedulerService Service, Channel<BreakDueEvent> Channel, BreakTimerState State) BuildService(
         AppSettings? settings = null,
         BreakTimerState? state = null)
     {
@@ -19,20 +19,21 @@ public sealed class BreakSchedulerServiceTests
             MicroBreak = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 30 },
             LongBreak = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
         };
+        state ??= new BreakTimerState();
         var channel = Channel.CreateUnbounded<BreakDueEvent>();
         var svc = new BreakSchedulerService(
             new OptionsMonitorStub(settings),
             channel,
-            state ?? new BreakTimerState(),
+            state,
             NullLogger<BreakSchedulerService>.Instance);
-        return (svc, channel);
+        return (svc, channel, state);
     }
 
     [Fact]
     public async Task MicroBreak_FiresAfterMicroInterval()
     {
-        var (svc, ch) = BuildService();
-        svc.LastMicroBreakAt = DateTimeOffset.UtcNow.AddMinutes(-20);
+        var (svc, ch, state) = BuildService();
+        state.LastMicroBreakAt = DateTimeOffset.UtcNow.AddMinutes(-20);
 
         await svc.CheckAndFireAsync(DateTimeOffset.UtcNow);
 
@@ -43,10 +44,10 @@ public sealed class BreakSchedulerServiceTests
     [Fact]
     public async Task LongBreak_FiresAfterLongInterval_AndResetsMicroTimer()
     {
-        var (svc, ch) = BuildService();
+        var (svc, ch, state) = BuildService();
         var ago = DateTimeOffset.UtcNow.AddMinutes(-60);
-        svc.LastLongBreakAt = ago;
-        svc.LastMicroBreakAt = ago;
+        state.LastLongBreakAt = ago;
+        state.LastMicroBreakAt = ago;
 
         await svc.CheckAndFireAsync(DateTimeOffset.UtcNow);
 
@@ -58,7 +59,7 @@ public sealed class BreakSchedulerServiceTests
     [Fact]
     public async Task DoesNotFire_WhenNotEnoughTimeElapsed()
     {
-        var (svc, ch) = BuildService();
+        var (svc, ch, _) = BuildService();
 
         var fired = await svc.CheckAndFireAsync(DateTimeOffset.UtcNow);
 
@@ -70,8 +71,8 @@ public sealed class BreakSchedulerServiceTests
     public async Task DoesNotFire_WhenPaused()
     {
         var state = new BreakTimerState { HeldForMeeting = true };
-        var (svc, ch) = BuildService(state: state);
-        svc.LastMicroBreakAt = DateTimeOffset.UtcNow.AddMinutes(-25);
+        var (svc, ch, _) = BuildService(state: state);
+        state.LastMicroBreakAt = DateTimeOffset.UtcNow.AddMinutes(-25);
 
         var fired = await svc.CheckAndFireAsync(DateTimeOffset.UtcNow);
 
@@ -82,10 +83,10 @@ public sealed class BreakSchedulerServiceTests
     [Fact]
     public async Task LongBreak_TakesPriorityOverMicro_WhenBothElapsed()
     {
-        var (svc, ch) = BuildService();
+        var (svc, ch, state) = BuildService();
         var ago = DateTimeOffset.UtcNow.AddHours(-2);
-        svc.LastMicroBreakAt = ago;
-        svc.LastLongBreakAt = ago;
+        state.LastMicroBreakAt = ago;
+        state.LastLongBreakAt = ago;
 
         await svc.CheckAndFireAsync(DateTimeOffset.UtcNow);
 
@@ -97,9 +98,9 @@ public sealed class BreakSchedulerServiceTests
     public async Task NextBreakAt_UpdatedAfterMicroFire()
     {
         var state = new BreakTimerState();
-        var (svc, _) = BuildService(state: state);
+        var (svc, _, _) = BuildService(state: state);
         var now = DateTimeOffset.UtcNow;
-        svc.LastMicroBreakAt = now.AddMinutes(-20);
+        state.LastMicroBreakAt = now.AddMinutes(-20);
 
         await svc.CheckAndFireAsync(now);
 
