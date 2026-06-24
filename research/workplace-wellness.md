@@ -144,15 +144,22 @@ frameworks do not apply. Two lightweight considerations:
 
 1. **Break content depth:** Do you want guided stretches shown during breaks (e.g., animated GIFs
    or illustrated cards), or is a simple "time to stand up!" notification enough for v1?
+   **Answer: Full exercise library** — a curated set of exercises with images/animations to
+   rotate through during each break.
 
 2. **Calendar / meeting awareness:** Do you take video calls (Zoom, Teams, Google Meet) during
    the day, and if so, which calendar do you use (Google Calendar, Outlook, Apple Calendar)?
    Meeting-aware suppression is the #1 differentiating feature here; answering this decides
    whether to include calendar integration in v1.
+   **Answer: Yes — Outlook / Microsoft 365.** Suppress reminders while an Outlook/Teams meeting
+   is running.
 
 3. **Break enforcement:** Should missed breaks be silently forgotten, or tracked so you can see
    how often you actually took them? (Determines whether a break-compliance log and habit streak
    are in v1 scope.)
+   **Answer: Fire-and-forget (simple)** — just send the reminder; no logging, no streak, no
+   dashboard.
 
 4. **Eye-strain reminders:** Do you want a separate high-frequency reminder for the 20-20-20 rule
    (look away from screen every 20 min for 20 s), distinct from the stand-up/stretch reminder?
+   **Answer: No — movement only.** Keep it to one type of reminder (stand-up/stretch).
