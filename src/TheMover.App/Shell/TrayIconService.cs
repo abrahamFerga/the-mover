@@ -8,7 +8,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TheMover.App.Config;
-using TheMover.App.Logging;
 using TheMover.App.Settings;
 using TheMover.Scheduler;
 
@@ -18,9 +17,6 @@ public sealed class TrayIconService : IHostedService, IDisposable
 {
     private readonly IHostApplicationLifetime _lifetime;
     private readonly ILogger<TrayIconService> _logger;
-    private readonly EventLogger _eventLogger;
-    private readonly BreakTimerState _timerState;
-    private readonly Channel<BreakDueEvent> _breakDueChannel;
     private readonly Channel<BreakCommand> _breakCommandChannel;
     private readonly ConfigManager _configManager;
     private readonly IOptionsMonitor<AppSettings> _options;
@@ -28,34 +24,22 @@ public sealed class TrayIconService : IHostedService, IDisposable
     private TaskbarIcon? _trayIcon;
     private MenuItem? _snoozeItem;
     private MenuItem? _skipItem;
-    private CancellationTokenSource? _cts;
 
     public TrayIconService(
         IHostApplicationLifetime lifetime,
         ILogger<TrayIconService> logger,
-        EventLogger eventLogger,
-        BreakTimerState timerState,
-        Channel<BreakDueEvent> breakDueChannel,
         Channel<BreakCommand> breakCommandChannel,
         ConfigManager configManager,
         IOptionsMonitor<AppSettings> options)
     {
         _lifetime = lifetime;
         _logger = logger;
-        _eventLogger = eventLogger;
-        _timerState = timerState;
-        _breakDueChannel = breakDueChannel;
         _breakCommandChannel = breakCommandChannel;
         _configManager = configManager;
         _options = options;
     }
 
-    public Task StartAsync(CancellationToken cancellationToken)
-    {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _ = Task.Run(() => ListenForBreakEventsAsync(_cts.Token), _cts.Token);
-        return Task.CompletedTask;
-    }
+    public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     public void ShowTrayIcon()
     {
@@ -97,7 +81,6 @@ public sealed class TrayIconService : IHostedService, IDisposable
         quit.Click += (_, _) => _lifetime.StopApplication();
         menu.Items.Add(quit);
 
-        // Keep a reference to the separator for toggling alongside snooze/skip
         _snoozeItem.Tag = breakSeparator;
 
         return menu;
@@ -116,7 +99,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
         HideBreakActions();
     }
 
-    private void ShowBreakActions()
+    public void ShowBreakActions()
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
@@ -127,7 +110,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
         });
     }
 
-    private void HideBreakActions()
+    public void HideBreakActions()
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
@@ -147,16 +130,6 @@ public sealed class TrayIconService : IHostedService, IDisposable
         });
     }
 
-    private async Task ListenForBreakEventsAsync(CancellationToken ct)
-    {
-        await foreach (var evt in _breakDueChannel.Reader.ReadAllAsync(ct))
-        {
-            _eventLogger.Log(AppEventType.BreakFired, new Dictionary<string, object?> { ["tier"] = evt.Tier.ToString() });
-            _logger.LogInformation("Break due: {Tier} at {FiredAt}", evt.Tier, evt.FiredAt);
-            ShowBreakActions();
-        }
-    }
-
     private static Icon CreateDefaultIcon()
     {
         // Placeholder icon — replaced with a real asset in a future epic.
@@ -169,15 +142,10 @@ public sealed class TrayIconService : IHostedService, IDisposable
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        _cts?.Cancel();
         Application.Current?.Dispatcher.Invoke(() => _trayIcon?.Dispose());
         _logger.LogInformation("Tray icon disposed");
         return Task.CompletedTask;
     }
 
-    public void Dispose()
-    {
-        _cts?.Dispose();
-        _trayIcon?.Dispose();
-    }
+    public void Dispose() => _trayIcon?.Dispose();
 }

@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using TheMover.App;
 using TheMover.App.Config;
 using TheMover.App.Logging;
+using TheMover.App.Overlay;
 using TheMover.App.Scheduler;
 using TheMover.App.Shell;
 using TheMover.Scheduler;
@@ -59,10 +60,11 @@ builder.Services.AddSingleton<TrayIconService>();
 // WPF Application (created once on the STA thread)
 builder.Services.AddSingleton<Application, App>();
 
-// Hosted services — WPF first so the STA thread is up, then scheduler, then tray
+// Hosted services — WPF first so the STA thread is up, then scheduler, then overlay + tray
 builder.Services.AddHostedService<WpfHostedService>();
 builder.Services.AddHostedService<BreakSchedulerService>();
 builder.Services.AddHostedService<BreakCommandHandlerService>();
+builder.Services.AddHostedService<OverlayService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<TrayIconService>());
 
 var host = builder.Build();
