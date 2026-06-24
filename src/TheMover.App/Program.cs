@@ -62,6 +62,7 @@ builder.Services.AddSingleton<Application, App>();
 // Hosted services — WPF first so the STA thread is up, then scheduler, then tray
 builder.Services.AddHostedService<WpfHostedService>();
 builder.Services.AddHostedService<BreakSchedulerService>();
+builder.Services.AddHostedService<BreakCommandHandlerService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<TrayIconService>());
 
 var host = builder.Build();

@@ -1,12 +1,12 @@
 // TheMover.App — ARCH.md: Components / TrayIconService
 using System.Drawing;
-using System.IO;
 using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Controls;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using TheMover.App.Config;
 using TheMover.App.Logging;
 using TheMover.App.Settings;
@@ -23,7 +23,11 @@ public sealed class TrayIconService : IHostedService, IDisposable
     private readonly Channel<BreakDueEvent> _breakDueChannel;
     private readonly Channel<BreakCommand> _breakCommandChannel;
     private readonly ConfigManager _configManager;
+    private readonly IOptionsMonitor<AppSettings> _options;
+
     private TaskbarIcon? _trayIcon;
+    private MenuItem? _snoozeItem;
+    private MenuItem? _skipItem;
     private CancellationTokenSource? _cts;
 
     public TrayIconService(
@@ -33,7 +37,8 @@ public sealed class TrayIconService : IHostedService, IDisposable
         BreakTimerState timerState,
         Channel<BreakDueEvent> breakDueChannel,
         Channel<BreakCommand> breakCommandChannel,
-        ConfigManager configManager)
+        ConfigManager configManager,
+        IOptionsMonitor<AppSettings> options)
     {
         _lifetime = lifetime;
         _logger = logger;
@@ -42,6 +47,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
         _breakDueChannel = breakDueChannel;
         _breakCommandChannel = breakCommandChannel;
         _configManager = configManager;
+        _options = options;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -70,6 +76,17 @@ public sealed class TrayIconService : IHostedService, IDisposable
     {
         var menu = new ContextMenu();
 
+        _snoozeItem = new MenuItem { Header = "Snooze 5 min", Visibility = Visibility.Collapsed };
+        _snoozeItem.Click += OnSnoozeClick;
+        menu.Items.Add(_snoozeItem);
+
+        _skipItem = new MenuItem { Header = "Skip break", Visibility = Visibility.Collapsed };
+        _skipItem.Click += OnSkipClick;
+        menu.Items.Add(_skipItem);
+
+        var breakSeparator = new Separator { Visibility = Visibility.Collapsed };
+        menu.Items.Add(breakSeparator);
+
         var openSettings = new MenuItem { Header = "Open Settings" };
         openSettings.Click += (_, _) => OpenSettings();
         menu.Items.Add(openSettings);
@@ -80,7 +97,45 @@ public sealed class TrayIconService : IHostedService, IDisposable
         quit.Click += (_, _) => _lifetime.StopApplication();
         menu.Items.Add(quit);
 
+        // Keep a reference to the separator for toggling alongside snooze/skip
+        _snoozeItem.Tag = breakSeparator;
+
         return menu;
+    }
+
+    private void OnSnoozeClick(object sender, RoutedEventArgs e)
+    {
+        var minutes = _options.CurrentValue.Snooze.IncrementMinutes;
+        _breakCommandChannel.Writer.TryWrite(new SnoozeBreakCommand(minutes));
+        HideBreakActions();
+    }
+
+    private void OnSkipClick(object sender, RoutedEventArgs e)
+    {
+        _breakCommandChannel.Writer.TryWrite(new SkipBreakCommand());
+        HideBreakActions();
+    }
+
+    private void ShowBreakActions()
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            if (_snoozeItem is null || _skipItem is null) return;
+            _snoozeItem.Visibility = Visibility.Visible;
+            _skipItem.Visibility = Visibility.Visible;
+            if (_snoozeItem.Tag is Separator sep) sep.Visibility = Visibility.Visible;
+        });
+    }
+
+    private void HideBreakActions()
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            if (_snoozeItem is null || _skipItem is null) return;
+            _snoozeItem.Visibility = Visibility.Collapsed;
+            _skipItem.Visibility = Visibility.Collapsed;
+            if (_snoozeItem.Tag is Separator sep) sep.Visibility = Visibility.Collapsed;
+        });
     }
 
     private void OpenSettings()
@@ -98,6 +153,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
         {
             _eventLogger.Log(AppEventType.BreakFired, new Dictionary<string, object?> { ["tier"] = evt.Tier.ToString() });
             _logger.LogInformation("Break due: {Tier} at {FiredAt}", evt.Tier, evt.FiredAt);
+            ShowBreakActions();
         }
     }
 
