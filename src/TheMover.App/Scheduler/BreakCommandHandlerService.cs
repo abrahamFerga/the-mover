@@ -41,8 +41,8 @@ public sealed class BreakCommandHandlerService : BackgroundService
                     HandleSnooze(snooze.Minutes);
                     break;
 
-                case SkipBreakCommand:
-                    HandleSkip();
+                case SkipBreakCommand skip:
+                    HandleSkip(skip.Tier, skip.IsCompletion);
                     break;
             }
         }
@@ -66,13 +66,18 @@ public sealed class BreakCommandHandlerService : BackgroundService
         _logger.LogInformation("Break snoozed for {Minutes} min", minutes);
     }
 
-    private void HandleSkip()
+    private void HandleSkip(BreakTier? tier, bool isCompletion)
     {
         var now = DateTimeOffset.UtcNow;
         _state.SnoozedUntil = null;
         _state.LastMicroBreakAt = now;
         _state.LastLongBreakAt = now;
-        _eventLogger.Log(AppEventType.Dismissed, new Dictionary<string, object?> { ["tier"] = _state.Tier.ToString() });
-        _logger.LogInformation("Break skipped (tier: {Tier})", _state.Tier);
+        if (!isCompletion)
+        {
+            // Use the tier from the command (state.Tier is already the NEXT break by now).
+            var tierName = tier?.ToString() ?? "Unknown";
+            _eventLogger.Log(AppEventType.Dismissed, new Dictionary<string, object?> { ["tier"] = tierName });
+            _logger.LogInformation("Break skipped (tier: {Tier})", tierName);
+        }
     }
 }

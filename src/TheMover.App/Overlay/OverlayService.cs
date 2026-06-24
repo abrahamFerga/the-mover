@@ -77,7 +77,7 @@ public sealed class OverlayService : BackgroundService
                 onComplete: () =>
                 {
                     _eventLogger.Log(AppEventType.BreakCompleted, new Dictionary<string, object?> { ["tier"] = evt.Tier.ToString() });
-                    _breakCommandChannel.Writer.TryWrite(new SkipBreakCommand());
+                    _breakCommandChannel.Writer.TryWrite(new SkipBreakCommand(evt.Tier, IsCompletion: true));
                     _tray.HideBreakActions();
                 },
                 onSnooze: () =>
@@ -88,7 +88,7 @@ public sealed class OverlayService : BackgroundService
                 },
                 onSkip: () =>
                 {
-                    _breakCommandChannel.Writer.TryWrite(new SkipBreakCommand());
+                    _breakCommandChannel.Writer.TryWrite(new SkipBreakCommand(evt.Tier));
                     _tray.HideBreakActions();
                 });
 

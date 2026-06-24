@@ -1,4 +1,6 @@
 // TheMover.App.Tests — BreakCommandHandlerService snooze / skip logic
+using System.IO;
+using System.Text.Json;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -122,6 +124,66 @@ public sealed class BreakCommandHandlerTests
         // relative to LastMicroBreakAt so the scheduler fires immediately on snooze expiry.
         var microElapsedAtExpiry = (state.SnoozedUntil!.Value - state.LastMicroBreakAt).TotalMinutes;
         Assert.Equal(20.0, microElapsedAtExpiry, precision: 0); // within rounding
+    }
+
+    [Fact]
+    public async Task Skip_LogsDismissedWithTierFromCommand_NotFromState()
+    {
+        var logPath = Path.Combine(Path.GetTempPath(), $"skip-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var commands = Channel.CreateUnbounded<BreakCommand>();
+            var state = new BreakTimerState { Tier = BreakTier.Micro }; // state says Micro (next break)
+            var settings = new AppSettings { Snooze = new SnoozeSettings { IncrementMinutes = 5 } };
+            var handler = new BreakCommandHandlerService(
+                commands, state,
+                new EventLogger(logPath, NullLogger<EventLogger>.Instance),
+                new OptionsMonitorStub(settings),
+                NullLogger<BreakCommandHandlerService>.Instance);
+
+            // But the actual break that was shown was Long
+            commands.Writer.TryWrite(new SkipBreakCommand(BreakTier.Long));
+            commands.Writer.Complete();
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            await handler.StartAsync(cts.Token);
+            await Task.Delay(100, cts.Token).ContinueWith(_ => { });
+
+            var log = File.ReadAllText(logPath);
+            Assert.Contains("\"event\":\"Dismissed\"", log);
+            Assert.Contains("\"tier\":\"Long\"", log);
+            Assert.DoesNotContain("\"tier\":\"Micro\"", log);
+        }
+        finally { if (File.Exists(logPath)) File.Delete(logPath); }
+    }
+
+    [Fact]
+    public async Task Skip_WithIsCompletion_DoesNotLogDismissed()
+    {
+        var logPath = Path.Combine(Path.GetTempPath(), $"complete-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var commands = Channel.CreateUnbounded<BreakCommand>();
+            var state = new BreakTimerState();
+            var settings = new AppSettings { Snooze = new SnoozeSettings { IncrementMinutes = 5 } };
+            var handler = new BreakCommandHandlerService(
+                commands, state,
+                new EventLogger(logPath, NullLogger<EventLogger>.Instance),
+                new OptionsMonitorStub(settings),
+                NullLogger<BreakCommandHandlerService>.Instance);
+
+            commands.Writer.TryWrite(new SkipBreakCommand(BreakTier.Micro, IsCompletion: true));
+            commands.Writer.Complete();
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            await handler.StartAsync(cts.Token);
+            await Task.Delay(100, cts.Token).ContinueWith(_ => { });
+
+            // Natural completion: no Dismissed event, timers reset
+            Assert.False(File.Exists(logPath), "No event log should be written for natural completion");
+            Assert.True(state.LastMicroBreakAt > DateTimeOffset.UtcNow.AddSeconds(-5));
+        }
+        finally { if (File.Exists(logPath)) File.Delete(logPath); }
     }
 
     private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>
