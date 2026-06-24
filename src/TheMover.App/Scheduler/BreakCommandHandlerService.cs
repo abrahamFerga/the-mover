@@ -50,7 +50,18 @@ public sealed class BreakCommandHandlerService : BackgroundService
 
     private void HandleSnooze(int minutes)
     {
-        _state.SnoozedUntil = DateTimeOffset.UtcNow.AddMinutes(minutes);
+        var now = DateTimeOffset.UtcNow;
+        var settings = _options.CurrentValue;
+        // Shift break timestamps back so the reminder re-fires when the snooze expires,
+        // not a full interval later.  Without this, a 5-min snooze on a 20-min micro
+        // cycle would delay the next reminder by 25 minutes instead of 5.
+        _state.LastMicroBreakAt = now
+            - TimeSpan.FromMinutes(settings.MicroBreak.IntervalMinutes)
+            + TimeSpan.FromMinutes(minutes);
+        _state.LastLongBreakAt = now
+            - TimeSpan.FromMinutes(settings.LongBreak.IntervalMinutes)
+            + TimeSpan.FromMinutes(minutes);
+        _state.SnoozedUntil = now.AddMinutes(minutes);
         _eventLogger.Log(AppEventType.Snoozed, new Dictionary<string, object?> { ["minutes"] = minutes });
         _logger.LogInformation("Break snoozed for {Minutes} min", minutes);
     }

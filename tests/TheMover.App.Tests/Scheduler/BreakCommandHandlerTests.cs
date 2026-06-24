@@ -91,6 +91,39 @@ public sealed class BreakCommandHandlerTests
         Assert.Null(state.SnoozedUntil);
     }
 
+    // Snoozing for N minutes should shift the break timestamps so the reminder
+    // re-fires exactly N minutes later — not a full interval later.
+    [Fact]
+    public async Task Snooze_ShiftsTimestampsForReFire()
+    {
+        var commands = Channel.CreateUnbounded<BreakCommand>();
+        var state = new BreakTimerState();
+        var settings = new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 30 },
+            LongBreak  = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
+            Snooze = new SnoozeSettings { IncrementMinutes = 5 }
+        };
+        var handler = new BreakCommandHandlerService(
+            commands,
+            state,
+            new EventLogger(NullLogger<EventLogger>.Instance),
+            new OptionsMonitorStub(settings),
+            NullLogger<BreakCommandHandlerService>.Instance);
+
+        commands.Writer.TryWrite(new SnoozeBreakCommand(5));
+        commands.Writer.Complete();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await handler.StartAsync(cts.Token);
+        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+
+        // 5 minutes after the snooze is issued, the micro interval (20 min) must have elapsed
+        // relative to LastMicroBreakAt so the scheduler fires immediately on snooze expiry.
+        var microElapsedAtExpiry = (state.SnoozedUntil!.Value - state.LastMicroBreakAt).TotalMinutes;
+        Assert.Equal(20.0, microElapsedAtExpiry, precision: 0); // within rounding
+    }
+
     private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>
     {
         public AppSettings CurrentValue => value;
