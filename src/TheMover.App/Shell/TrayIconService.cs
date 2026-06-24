@@ -128,14 +128,32 @@ public sealed class TrayIconService : IHostedService, IDisposable
         });
     }
 
+    private bool _isIdle;
+    private bool _inMeeting;
+
     public void UpdateTooltip(bool paused)
+    {
+        _isIdle = paused;
+        RefreshTooltip();
+    }
+
+    public void UpdateMeetingTooltip(bool inMeeting)
+    {
+        _inMeeting = inMeeting;
+        RefreshTooltip();
+    }
+
+    private void RefreshTooltip()
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
             if (_trayIcon is null) return;
-            _trayIcon.ToolTipText = paused
-                ? "The Mover — Paused (idle)"
-                : "The Mover — Break reminder active";
+            _trayIcon.ToolTipText = (_inMeeting, _isIdle) switch
+            {
+                (true, _) => "The Mover — Paused (in meeting)",
+                (_, true) => "The Mover — Paused (idle)",
+                _ => "The Mover — Break reminder active"
+            };
         });
     }
 

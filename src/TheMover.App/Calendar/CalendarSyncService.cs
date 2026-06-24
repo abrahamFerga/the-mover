@@ -14,17 +14,28 @@ public sealed class CalendarSyncService : BackgroundService
     private readonly BreakTimerState _state;
     private readonly IOptionsMonitor<AppSettings> _options;
     private readonly ILogger<CalendarSyncService> _logger;
+    private readonly Action<bool>? _updateMeetingTooltip;
 
     public CalendarSyncService(
         ICalendarClient calendar,
         BreakTimerState state,
         IOptionsMonitor<AppSettings> options,
-        ILogger<CalendarSyncService> logger)
+        ILogger<CalendarSyncService> logger,
+        Shell.TrayIconService tray)
+        : this(calendar, state, options, logger, tray.UpdateMeetingTooltip) { }
+
+    internal CalendarSyncService(
+        ICalendarClient calendar,
+        BreakTimerState state,
+        IOptionsMonitor<AppSettings> options,
+        ILogger<CalendarSyncService> logger,
+        Action<bool>? updateMeetingTooltip = null)
     {
         _calendar = calendar;
         _state = state;
         _options = options;
         _logger = logger;
+        _updateMeetingTooltip = updateMeetingTooltip;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -42,7 +53,11 @@ public sealed class CalendarSyncService : BackgroundService
     {
         if (!_options.CurrentValue.Calendar.Enabled)
         {
-            _state.HeldForMeeting = false;
+            if (_state.HeldForMeeting)
+            {
+                _state.HeldForMeeting = false;
+                _updateMeetingTooltip?.Invoke(false);
+            }
             return;
         }
 
@@ -52,6 +67,7 @@ public sealed class CalendarSyncService : BackgroundService
             if (_state.HeldForMeeting != inMeeting)
             {
                 _state.HeldForMeeting = inMeeting;
+                _updateMeetingTooltip?.Invoke(inMeeting);
                 _logger.LogInformation("Meeting state changed: HeldForMeeting={InMeeting}", inMeeting);
             }
         }
