@@ -9,7 +9,8 @@
         WindowStartupLocation="CenterScreen"
         Width="480" Height="320"
         Background="#FF1E1E2E"
-        ContentRendered="OnContentRendered">
+        ContentRendered="OnContentRendered"
+        KeyDown="OnKeyDown">
 
     <Grid Margin="24">
         <Grid.ColumnDefinitions>

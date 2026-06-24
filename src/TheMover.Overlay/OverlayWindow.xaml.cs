@@ -1,5 +1,6 @@
 // TheMover.Overlay — in-process WPF overlay (Topmost=True bypasses Focus Assist; ADR-0003)
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
@@ -90,5 +91,18 @@ public partial class OverlayWindow : Window
         _countdown.Stop();
         _onSkip();
         Close();
+    }
+
+    private void OnKeyDown(object sender, KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Escape:
+                Skip_Click(this, new RoutedEventArgs());
+                break;
+            case Key.S:
+                Snooze_Click(this, new RoutedEventArgs());
+                break;
+        }
     }
 }
