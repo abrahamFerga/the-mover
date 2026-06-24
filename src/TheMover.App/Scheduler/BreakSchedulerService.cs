@@ -64,6 +64,9 @@ public sealed class BreakSchedulerService : BackgroundService
             return true;
         }
 
+        // Keep NextBreakAt in sync every tick so the tray countdown reflects
+        // any settings change made while the app is running.
+        SyncNextBreak(now);
         return false;
     }
 

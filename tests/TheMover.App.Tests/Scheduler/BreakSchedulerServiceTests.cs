@@ -126,6 +126,47 @@ public sealed class BreakSchedulerServiceTests
         Assert.Equal(BreakTier.Micro, state.Tier);
     }
 
+    // NextBreakAt must reflect the CURRENT setting, not the value at last fire.
+    // Regression guard: if SyncNextBreak is only called on fire, a settings change
+    // leaves the tray countdown showing a stale time until the next break fires.
+    [Fact]
+    public async Task NextBreakAt_UpdatesOnNextTickAfterSettingsChange()
+    {
+        var settings = new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 30 },
+            LongBreak = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 }
+        };
+        var state = new BreakTimerState();
+        var stub = new MutableOptionsMonitorStub(settings);
+        var channel = Channel.CreateUnbounded<BreakDueEvent>();
+        var svc = new BreakSchedulerService(stub, channel, state, NullLogger<BreakSchedulerService>.Instance);
+
+        var now = DateTimeOffset.UtcNow;
+        await svc.CheckAndFireAsync(now); // syncs NextBreakAt with 20-min interval
+
+        var nextBefore = state.NextBreakAt; // roughly now + 20 min
+
+        // User changes interval to 10 minutes in Settings
+        stub.Value = new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 10, DurationSeconds = 30 },
+            LongBreak = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 }
+        };
+
+        await svc.CheckAndFireAsync(now); // no fire, but should re-sync
+
+        Assert.True(state.NextBreakAt < nextBefore, "NextBreakAt must shrink when interval is reduced");
+    }
+
+    private sealed class MutableOptionsMonitorStub(AppSettings initial) : IOptionsMonitor<AppSettings>
+    {
+        public AppSettings Value = initial;
+        public AppSettings CurrentValue => Value;
+        public AppSettings Get(string? name) => Value;
+        public IDisposable? OnChange(Action<AppSettings, string?> listener) => null;
+    }
+
     private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>
     {
         public AppSettings CurrentValue => value;
