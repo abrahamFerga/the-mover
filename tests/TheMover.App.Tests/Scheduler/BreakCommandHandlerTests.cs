@@ -162,7 +162,7 @@ public sealed class BreakCommandHandlerTests
     }
 
     [Fact]
-    public async Task Snooze_WithNoSource_LogsTraySouce()
+    public async Task Snooze_WithNoSource_LogsTraySource()
     {
         var logPath = Path.Combine(Path.GetTempPath(), $"snooze-tray-{Guid.NewGuid():N}.jsonl");
         try

@@ -11,49 +11,6 @@ namespace TheMover.App.Tests.Scheduler;
 
 public sealed class SnoozeCycleIntegrationTests
 {
-    private static (BreakCommandHandlerService, BreakSchedulerService, BreakTimerState)
-        Build(int microMinutes, int snoozeMinutes)
-    {
-        var settings = new AppSettings
-        {
-            MicroBreak = new BreakTierSettings { IntervalMinutes = microMinutes, DurationSeconds = 30 },
-            LongBreak  = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
-            Snooze = new SnoozeSettings { IncrementMinutes = snoozeMinutes }
-        };
-        var options = new OptionsMonitorStub(settings);
-        var state = new BreakTimerState();
-        var breakDueChannel = Channel.CreateBounded<BreakDueEvent>(new BoundedChannelOptions(1)
-        {
-            FullMode = BoundedChannelFullMode.DropOldest,
-            SingleWriter = true
-        });
-        var commandChannel = Channel.CreateUnbounded<BreakCommand>(
-            new UnboundedChannelOptions { SingleReader = true });
-
-        var handler = new BreakCommandHandlerService(
-            commandChannel,
-            state,
-            new EventLogger(NullLogger<EventLogger>.Instance),
-            options,
-            NullLogger<BreakCommandHandlerService>.Instance);
-
-        var scheduler = new BreakSchedulerService(
-            options, breakDueChannel, state,
-            NullLogger<BreakSchedulerService>.Instance);
-
-        return (handler, scheduler, state);
-    }
-
-    private static async Task ApplySnooze(BreakCommandHandlerService handler, int minutes)
-    {
-        var channel = Channel.CreateUnbounded<BreakCommand>();
-        channel.Writer.TryWrite(new SnoozeBreakCommand(minutes));
-        channel.Writer.Complete();
-
-        // Use a fresh handler wired to a fresh channel — simpler than re-using the shared one
-        // We only need the HandleSnooze side-effect on state.
-    }
-
     // Verifies that after a snooze the scheduler fires at the snooze boundary.
     // IsPaused uses DateTimeOffset.UtcNow, so we backdate SnoozedUntil to simulate
     // expiry, and derive the "effective handler time" from state.SnoozedUntil so
