@@ -1,5 +1,6 @@
 // TheMover.Overlay — in-process WPF overlay (Topmost=True bypasses Focus Assist; ADR-0003)
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
@@ -10,16 +11,18 @@ namespace TheMover.Overlay;
 public partial class OverlayWindow : Window
 {
     private readonly int _totalSeconds;
+    private readonly Action _onComplete;
     private readonly Action _onSnooze;
     private readonly Action _onSkip;
     private readonly DispatcherTimer _countdown;
     private int _remaining;
     private bool _actionTaken;
 
-    public OverlayWindow(string tierLabel, int durationSeconds, Exercise exercise, Action onSnooze, Action onSkip)
+    public OverlayWindow(string tierLabel, int durationSeconds, Exercise exercise, Action onComplete, Action onSnooze, Action onSkip)
     {
         _totalSeconds = durationSeconds;
         _remaining = durationSeconds;
+        _onComplete = onComplete;
         _onSnooze = onSnooze;
         _onSkip = onSkip;
 
@@ -36,6 +39,8 @@ public partial class OverlayWindow : Window
 
     private void OnContentRendered(object sender, EventArgs e)
     {
+        // Ensure the borderless window has keyboard focus so Escape/S shortcuts work.
+        Activate();
         _countdown.Start();
         StartBreatheAnimation();
     }
@@ -60,9 +65,11 @@ public partial class OverlayWindow : Window
         _remaining--;
         UpdateDisplay();
 
-        if (_remaining <= 0)
+        if (_remaining <= 0 && !_actionTaken)
         {
+            _actionTaken = true;
             _countdown.Stop();
+            _onComplete();
             Close();
         }
     }
@@ -90,5 +97,18 @@ public partial class OverlayWindow : Window
         _countdown.Stop();
         _onSkip();
         Close();
+    }
+
+    private void OnKeyDown(object sender, KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Escape:
+                Skip_Click(this, new RoutedEventArgs());
+                break;
+            case Key.S:
+                Snooze_Click(this, new RoutedEventArgs());
+                break;
+        }
     }
 }

@@ -41,14 +41,37 @@ public sealed class BreakTimerStateTests
     }
 
     [Fact]
+    public void FiringTier_IsNullByDefault()
+    {
+        var state = new BreakTimerState();
+        Assert.Null(state.FiringTier);
+    }
+
+    [Fact]
+    public void FiringTier_CanBeSetAndCleared()
+    {
+        var state = new BreakTimerState();
+        state.FiringTier = BreakTier.Long;
+        Assert.Equal(BreakTier.Long, state.FiringTier);
+        state.FiringTier = null;
+        Assert.Null(state.FiringTier);
+    }
+
+    [Fact]
+    public void NextBreakAt_DefaultsToMaxValue()
+    {
+        // TrayIconService guards against MaxValue to avoid int overflow in the countdown tooltip.
+        var state = new BreakTimerState();
+        Assert.Equal(DateTimeOffset.MaxValue, state.NextBreakAt);
+    }
+
+    [Fact]
     public void BreakDueEvent_HasCorrectProperties()
     {
-        var exerciseId = Guid.NewGuid();
         var firedAt = DateTimeOffset.UtcNow;
-        var evt = new BreakDueEvent(BreakTier.Micro, firedAt, exerciseId);
+        var evt = new BreakDueEvent(BreakTier.Micro, firedAt);
         Assert.Equal(BreakTier.Micro, evt.Tier);
         Assert.Equal(firedAt, evt.FiredAt);
-        Assert.Equal(exerciseId, evt.ExerciseId);
     }
 
     [Fact]

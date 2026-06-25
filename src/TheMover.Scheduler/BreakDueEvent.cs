@@ -3,4 +3,4 @@ namespace TheMover.Scheduler;
 
 public enum BreakTier { Micro, Long }
 
-public sealed record BreakDueEvent(BreakTier Tier, DateTimeOffset FiredAt, Guid ExerciseId);
+public sealed record BreakDueEvent(BreakTier Tier, DateTimeOffset FiredAt);

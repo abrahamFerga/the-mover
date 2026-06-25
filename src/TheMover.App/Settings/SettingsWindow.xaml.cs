@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Windows;
 using TheMover.App.Config;
+using TheMover.App.Shell;
 using TheMover.Calendar;
 using TheMover.Content;
 
@@ -11,11 +12,14 @@ public partial class SettingsWindow : Window
 {
     private readonly ConfigManager _configManager;
     private readonly ICalendarClient _calendarClient;
+    private readonly StartupRegistrar _startupRegistrar;
 
-    public SettingsWindow(ConfigManager configManager, ICalendarClient calendarClient)
+    public SettingsWindow(ConfigManager configManager, ICalendarClient calendarClient,
+        StartupRegistrar startupRegistrar)
     {
         _configManager = configManager;
         _calendarClient = calendarClient;
+        _startupRegistrar = startupRegistrar;
         InitializeComponent();
         Loaded += OnLoaded;
     }
@@ -118,6 +122,9 @@ public partial class SettingsWindow : Window
             return;
         }
         await _configManager.SaveAsync(settings);
+        // Sync the Windows startup registry entry with the saved preference.
+        var exePath = Environment.ProcessPath ?? string.Empty;
+        _startupRegistrar.SetStartupEnabled(settings.AutoStartWithWindows, exePath);
         Close();
     }
 
@@ -140,6 +147,11 @@ public partial class SettingsWindow : Window
 
         if (!int.TryParse(LongDurationBox.Text, out var longDuration) || longDuration < 10 || longDuration > 600)
         { error = "Long-break duration must be between 10 and 600 seconds."; return false; }
+
+        // Micro must fire more often than long, otherwise the long-break timer fires first
+        // every time and micro breaks never occur.
+        if (microInterval >= longInterval)
+        { error = "Micro-break interval must be shorter than the long-break interval."; return false; }
 
         var current = _configManager.Current;
         settings = new AppSettings
