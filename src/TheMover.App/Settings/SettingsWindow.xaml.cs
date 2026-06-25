@@ -105,42 +105,35 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private async Task SaveCalendarCredentialsAsync()
-    {
-        var current = _configManager.Current;
-        var updated = new AppSettings
+    private Task SaveCalendarCredentialsAsync() =>
+        PatchCalendarAsync(cal => new CalendarSettings
         {
-            MicroBreak = current.MicroBreak,
-            LongBreak = current.LongBreak,
-            AutoStartWithWindows = current.AutoStartWithWindows,
-            Snooze = current.Snooze,
-            Calendar = new CalendarSettings
-            {
-                Enabled = current.Calendar.Enabled,
-                TenantId = TenantIdBox.Text.Trim().NullIfEmpty(),
-                ClientId = ClientIdBox.Text.Trim().NullIfEmpty(),
-            }
-        };
-        await _configManager.SaveAsync(updated);
-    }
+            Enabled = cal.Enabled,
+            TenantId = TenantIdBox.Text.Trim().NullIfEmpty(),
+            ClientId = ClientIdBox.Text.Trim().NullIfEmpty(),
+        });
 
-    private async Task SaveCalendarEnabledAsync(bool enabled)
+    private Task SaveCalendarEnabledAsync(bool enabled) =>
+        PatchCalendarAsync(cal => new CalendarSettings
+        {
+            Enabled = enabled,
+            TenantId = cal.TenantId,
+            ClientId = cal.ClientId,
+        });
+
+    // Single clone site for AppSettings: if a new field is added here, only this
+    // method needs updating — not every Calendar-patching caller.
+    private async Task PatchCalendarAsync(Func<CalendarSettings, CalendarSettings> patcher)
     {
         var current = _configManager.Current;
-        var updated = new AppSettings
+        await _configManager.SaveAsync(new AppSettings
         {
             MicroBreak = current.MicroBreak,
             LongBreak = current.LongBreak,
             AutoStartWithWindows = current.AutoStartWithWindows,
             Snooze = current.Snooze,
-            Calendar = new CalendarSettings
-            {
-                Enabled = enabled,
-                TenantId = current.Calendar.TenantId,
-                ClientId = current.Calendar.ClientId,
-            }
-        };
-        await _configManager.SaveAsync(updated);
+            Calendar = patcher(current.Calendar)
+        });
     }
 
     private async void Save_Click(object sender, RoutedEventArgs e)
