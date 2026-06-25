@@ -1,16 +1,20 @@
 // TheMover.App — ARCH.md: Components / Program (Generic Host entry point, ADR-0005)
 using System.IO;
+using System.Net.Http;
 using System.Threading.Channels;
 using System.Windows;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using TheMover.App;
+using TheMover.App.Calendar;
 using TheMover.App.Config;
 using TheMover.App.Logging;
 using TheMover.App.Overlay;
 using TheMover.App.Scheduler;
 using TheMover.App.Shell;
+using TheMover.Calendar;
 using TheMover.Content;
 using TheMover.Scheduler;
 
@@ -52,6 +56,19 @@ builder.Services.AddSingleton(
 // Shared in-memory state
 builder.Services.AddSingleton<BreakTimerState>();
 
+// Calendar integration — GraphCalendarClient registered as ICalendarClient; requires Azure AD
+// App Registration with Calendars.Read scope. TenantId + ClientId configured in appsettings.
+builder.Services.AddHttpClient("calendar");
+builder.Services.AddSingleton<ICalendarClient>(sp =>
+{
+    var cal = sp.GetRequiredService<IOptions<AppSettings>>().Value.Calendar;
+    var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("calendar");
+    return new GraphCalendarClient(
+        clientId: cal.ClientId ?? string.Empty,
+        tenantId: cal.TenantId ?? "common",
+        httpClient: http);
+});
+
 // App services
 builder.Services.AddSingleton<ConfigManager>();
 builder.Services.AddSingleton<EventLogger>();
@@ -66,6 +83,7 @@ builder.Services.AddSingleton<Application, App>();
 builder.Services.AddHostedService<WpfHostedService>();
 builder.Services.AddHostedService<BreakSchedulerService>();
 builder.Services.AddHostedService<BreakCommandHandlerService>();
+builder.Services.AddHostedService<CalendarSyncService>();
 builder.Services.AddHostedService<OverlayService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<TrayIconService>());
 

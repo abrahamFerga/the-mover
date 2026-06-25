@@ -1,7 +1,8 @@
-// TheMover.App — Settings window (Break Schedule + Exercise browse tabs)
+// TheMover.App — Settings window (Break Schedule + Exercise browse + Outlook connect/disconnect)
 using System.Diagnostics.CodeAnalysis;
 using System.Windows;
 using TheMover.App.Config;
+using TheMover.Calendar;
 using TheMover.Content;
 
 namespace TheMover.App.Settings;
@@ -9,15 +10,17 @@ namespace TheMover.App.Settings;
 public partial class SettingsWindow : Window
 {
     private readonly ConfigManager _configManager;
+    private readonly ICalendarClient _calendarClient;
 
-    public SettingsWindow(ConfigManager configManager)
+    public SettingsWindow(ConfigManager configManager, ICalendarClient calendarClient)
     {
         _configManager = configManager;
+        _calendarClient = calendarClient;
         InitializeComponent();
         Loaded += OnLoaded;
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         var s = _configManager.Current;
         MicroIntervalBox.Text = s.MicroBreak.IntervalMinutes.ToString();
@@ -27,6 +30,84 @@ public partial class SettingsWindow : Window
         AutoStartBox.IsChecked = s.AutoStartWithWindows;
 
         ExercisesList.ItemsSource = ExerciseLibrary.All;
+
+        TenantIdBox.Text = s.Calendar.TenantId ?? string.Empty;
+        ClientIdBox.Text = s.Calendar.ClientId ?? string.Empty;
+        await RefreshCalendarStatusAsync();
+    }
+
+    private async Task RefreshCalendarStatusAsync()
+    {
+        var connected = await _calendarClient.IsConnectedAsync();
+        CalendarStatusLabel.Text = connected
+            ? "Status: Connected"
+            : "Status: Not connected";
+        ConnectButton.IsEnabled = !connected;
+        DisconnectButton.IsEnabled = connected;
+    }
+
+    private async void Connect_Click(object sender, RoutedEventArgs e)
+    {
+        ConnectButton.IsEnabled = false;
+        CalendarStatusLabel.Text = "Status: Connecting...";
+        try
+        {
+            // Save tenant/client IDs first so GraphCalendarClient uses them
+            await SaveCalendarCredentialsAsync();
+            await _calendarClient.ConnectAsync();
+            await SaveCalendarEnabledAsync(enabled: true);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Connection failed: {ex.Message}", "Outlook Connection", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        await RefreshCalendarStatusAsync();
+    }
+
+    private async void Disconnect_Click(object sender, RoutedEventArgs e)
+    {
+        DisconnectButton.IsEnabled = false;
+        await _calendarClient.DisconnectAsync();
+        await SaveCalendarEnabledAsync(enabled: false);
+        await RefreshCalendarStatusAsync();
+    }
+
+    private async Task SaveCalendarCredentialsAsync()
+    {
+        var current = _configManager.Current;
+        var updated = new AppSettings
+        {
+            MicroBreak = current.MicroBreak,
+            LongBreak = current.LongBreak,
+            AutoStartWithWindows = current.AutoStartWithWindows,
+            Snooze = current.Snooze,
+            Calendar = new CalendarSettings
+            {
+                Enabled = current.Calendar.Enabled,
+                TenantId = TenantIdBox.Text.Trim().NullIfEmpty(),
+                ClientId = ClientIdBox.Text.Trim().NullIfEmpty(),
+            }
+        };
+        await _configManager.SaveAsync(updated);
+    }
+
+    private async Task SaveCalendarEnabledAsync(bool enabled)
+    {
+        var current = _configManager.Current;
+        var updated = new AppSettings
+        {
+            MicroBreak = current.MicroBreak,
+            LongBreak = current.LongBreak,
+            AutoStartWithWindows = current.AutoStartWithWindows,
+            Snooze = current.Snooze,
+            Calendar = new CalendarSettings
+            {
+                Enabled = enabled,
+                TenantId = current.Calendar.TenantId,
+                ClientId = current.Calendar.ClientId,
+            }
+        };
+        await _configManager.SaveAsync(updated);
     }
 
     private async void Save_Click(object sender, RoutedEventArgs e)
@@ -72,4 +153,9 @@ public partial class SettingsWindow : Window
         error = null;
         return true;
     }
+}
+
+file static class StringExtensions
+{
+    public static string? NullIfEmpty(this string s) => string.IsNullOrWhiteSpace(s) ? null : s;
 }
