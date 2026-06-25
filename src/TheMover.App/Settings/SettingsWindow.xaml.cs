@@ -121,7 +121,16 @@ public partial class SettingsWindow : Window
             MessageBox.Show(error, "Validation error", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        await _configManager.SaveAsync(settings);
+        try
+        {
+            await _configManager.SaveAsync(settings);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Settings could not be saved: {ex.Message}", "Save failed",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
         // Sync the Windows startup registry entry with the saved preference.
         var exePath = Environment.ProcessPath ?? string.Empty;
         _startupRegistrar.SetStartupEnabled(settings.AutoStartWithWindows, exePath);

@@ -255,6 +255,31 @@ public sealed class BreakCommandHandlerTests
         finally { if (File.Exists(logPath)) File.Delete(logPath); }
     }
 
+    // SnoozeBreakCommand with minutes <= 0 or > 1440 must be silently ignored —
+    // no state change, no event logged.
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(1441)]
+    [InlineData(int.MinValue)]
+    [InlineData(int.MaxValue)]
+    public async Task Snooze_WithInvalidMinutes_IsIgnored(int invalidMinutes)
+    {
+        var (handler, commands, state) = Build();
+        var before = state.SnoozedUntil;
+        var beforeMicro = state.LastMicroBreakAt;
+
+        commands.Writer.TryWrite(new SnoozeBreakCommand(invalidMinutes));
+        commands.Writer.Complete();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await handler.StartAsync(cts.Token);
+        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+
+        Assert.Equal(before, state.SnoozedUntil);       // no snooze set
+        Assert.Equal(beforeMicro, state.LastMicroBreakAt); // timestamps unchanged
+    }
+
     private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>
     {
         public AppSettings CurrentValue => value;

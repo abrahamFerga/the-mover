@@ -50,6 +50,12 @@ public sealed class BreakCommandHandlerService : BackgroundService
 
     private void HandleSnooze(int minutes, string? source)
     {
+        if (minutes <= 0 || minutes > 1440)
+        {
+            _logger.LogWarning("Ignoring snooze with out-of-range minutes: {Minutes}", minutes);
+            return;
+        }
+
         var now = DateTimeOffset.UtcNow;
         var settings = _options.CurrentValue;
         // Shift break timestamps back so the reminder re-fires when the snooze expires,
