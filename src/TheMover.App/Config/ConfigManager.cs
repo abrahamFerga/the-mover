@@ -25,7 +25,30 @@ public sealed class ConfigManager(
     {
         Directory.CreateDirectory(Path.GetDirectoryName(ConfigPath)!);
         var json = JsonSerializer.Serialize(settings, SaveOpts);
-        await File.WriteAllTextAsync(ConfigPath, json, ct);
+
+        // Atomic write: serialise to a sibling temp file, then replace the target in a
+        // single rename. A crash or forced quit mid-write leaves the previous complete
+        // file intact instead of a truncated one — Program.cs loads appsettings.local.json
+        // as optional-but-not-fault-tolerant, so a torn file throws at startup binding and
+        // bricks the app until the user deletes it by hand.
+        var tempPath = ConfigPath + ".tmp";
+        try
+        {
+            await File.WriteAllTextAsync(tempPath, json, ct);
+            File.Move(tempPath, ConfigPath, overwrite: true);
+        }
+        catch
+        {
+            TryDeleteTemp(tempPath);
+            throw;
+        }
         logger.LogInformation("Settings saved to {Path}", ConfigPath);
+    }
+
+    private static void TryDeleteTemp(string path)
+    {
+        // Best-effort cleanup — the original config file is already safe either way.
+        try { if (File.Exists(path)) File.Delete(path); }
+        catch { /* leave the stray temp; the next save overwrites it */ }
     }
 }

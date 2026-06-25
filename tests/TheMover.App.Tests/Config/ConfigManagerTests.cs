@@ -165,6 +165,39 @@ public sealed class ConfigManagerTests
         finally { TryDelete(path); }
     }
 
+    // Atomic save writes through a sibling ".tmp" file then renames it onto the target.
+    // A clean save must not leave that temp artifact behind.
+    [Fact]
+    public async Task SaveAsync_LeavesNoTempFileBehind()
+    {
+        var path = TempPath();
+        try
+        {
+            await BuildWithTempPath(path).SaveAsync(new AppSettings());
+            Assert.True(File.Exists(path), "config file should exist after save");
+            Assert.False(File.Exists(path + ".tmp"), "temp file must be renamed away, not left behind");
+        }
+        finally { TryDelete(path); TryDelete(path + ".tmp"); }
+    }
+
+    // A stale temp file from a previously-interrupted save must not block the next save.
+    [Fact]
+    public async Task SaveAsync_OverwritesStaleTempFile()
+    {
+        var path = TempPath();
+        try
+        {
+            await File.WriteAllTextAsync(path + ".tmp", "{ torn partial write");
+            await BuildWithTempPath(path).SaveAsync(
+                new AppSettings { MicroBreak = new BreakTierSettings { IntervalMinutes = 12, DurationSeconds = 30 } });
+
+            var loaded = JsonSerializer.Deserialize<AppSettings>(await File.ReadAllTextAsync(path))!;
+            Assert.Equal(12, loaded.MicroBreak.IntervalMinutes);
+            Assert.False(File.Exists(path + ".tmp"), "stale temp file should be consumed by the rename");
+        }
+        finally { TryDelete(path); TryDelete(path + ".tmp"); }
+    }
+
     private static string TempPath() =>
         Path.Combine(Path.GetTempPath(), $"cm-{Guid.NewGuid():N}.json");
 
