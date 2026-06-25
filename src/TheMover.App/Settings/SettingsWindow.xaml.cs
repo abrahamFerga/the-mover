@@ -37,7 +37,16 @@ public partial class SettingsWindow : Window
 
         TenantIdBox.Text = s.Calendar.TenantId ?? string.Empty;
         ClientIdBox.Text = s.Calendar.ClientId ?? string.Empty;
-        await RefreshCalendarStatusAsync();
+        try
+        {
+            await RefreshCalendarStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            CalendarStatusLabel.Text = $"Status: Unavailable ({ex.Message})";
+            ConnectButton.IsEnabled = true;
+            DisconnectButton.IsEnabled = false;
+        }
     }
 
     private async Task RefreshCalendarStatusAsync()
@@ -71,8 +80,16 @@ public partial class SettingsWindow : Window
     private async void Disconnect_Click(object sender, RoutedEventArgs e)
     {
         DisconnectButton.IsEnabled = false;
-        await _calendarClient.DisconnectAsync();
-        await SaveCalendarEnabledAsync(enabled: false);
+        try
+        {
+            await _calendarClient.DisconnectAsync();
+            await SaveCalendarEnabledAsync(enabled: false);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Disconnect failed: {ex.Message}", "Outlook Disconnect",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
         await RefreshCalendarStatusAsync();
     }
 

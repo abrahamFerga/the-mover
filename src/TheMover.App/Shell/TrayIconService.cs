@@ -198,7 +198,9 @@ public sealed class TrayIconService : IHostedService, IDisposable
     private static Icon CreateDefaultIcon()
     {
         // Placeholder icon — replaced with a real asset in a future epic.
-        var bmp = new Bitmap(16, 16);
+        // Dispose bmp after GetHicon() copies its pixels into an HICON so the
+        // GDI+ Bitmap object doesn't leak over the lifetime of the app.
+        using var bmp = new Bitmap(16, 16);
         using var g = Graphics.FromImage(bmp);
         g.Clear(Color.DodgerBlue);
         g.FillEllipse(Brushes.White, 3, 3, 10, 10);
