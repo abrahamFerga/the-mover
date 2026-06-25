@@ -8,6 +8,7 @@ packages/
 *.nupkg
 *.snupkg
 TestResults/
+test-results/
 
 # Aspire
 .aspire/

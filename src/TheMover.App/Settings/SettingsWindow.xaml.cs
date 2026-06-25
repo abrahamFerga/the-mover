@@ -74,7 +74,13 @@ public partial class SettingsWindow : Window
         {
             MessageBox.Show($"Connection failed: {ex.Message}", "Outlook Connection", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
-        await RefreshCalendarStatusAsync();
+        try { await RefreshCalendarStatusAsync(); }
+        catch (Exception ex)
+        {
+            CalendarStatusLabel.Text = $"Status: Unavailable ({ex.Message})";
+            ConnectButton.IsEnabled = true;
+            DisconnectButton.IsEnabled = false;
+        }
     }
 
     private async void Disconnect_Click(object sender, RoutedEventArgs e)
@@ -90,7 +96,13 @@ public partial class SettingsWindow : Window
             MessageBox.Show($"Disconnect failed: {ex.Message}", "Outlook Disconnect",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
-        await RefreshCalendarStatusAsync();
+        try { await RefreshCalendarStatusAsync(); }
+        catch (Exception ex)
+        {
+            CalendarStatusLabel.Text = $"Status: Unavailable ({ex.Message})";
+            ConnectButton.IsEnabled = true;
+            DisconnectButton.IsEnabled = false;
+        }
     }
 
     private async Task SaveCalendarCredentialsAsync()
