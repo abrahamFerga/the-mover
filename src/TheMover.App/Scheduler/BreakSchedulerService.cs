@@ -72,8 +72,6 @@ public sealed class BreakSchedulerService : BackgroundService
 
     private async Task FireAsync(BreakTier tier, DateTimeOffset firedAt)
     {
-        _state.Tier = tier;
-        _state.NextBreakAt = firedAt;
         await _channel.Writer.WriteAsync(new BreakDueEvent(tier, firedAt));
         _logger.LogInformation("Break due: {Tier}", tier);
     }
