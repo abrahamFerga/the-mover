@@ -407,6 +407,75 @@ public sealed class BreakCommandHandlerTests
             $"Long-break timer must not shift when long break is not due; elapsed at expiry = {longElapsedAtExpiry:F1} min");
     }
 
+    // Completing a micro break must not reset LastLongBreakAt — otherwise the long
+    // break never fires for users who take every micro break (accumulated long-break
+    // time is wiped on each micro completion, keeping elapsed < longInterval forever).
+    [Fact]
+    public async Task Skip_WithMicroTier_DoesNotResetLongBreakTimer()
+    {
+        var commands = Channel.CreateUnbounded<BreakCommand>();
+        var state = new BreakTimerState();
+        var settings = new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 30 },
+            LongBreak  = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
+            Snooze = new SnoozeSettings { IncrementMinutes = 5 }
+        };
+        var handler = new BreakCommandHandlerService(
+            commands, state,
+            new EventLogger(NullLogger<EventLogger>.Instance),
+            new OptionsMonitorStub(settings),
+            NullLogger<BreakCommandHandlerService>.Instance);
+
+        // 40 min into a 60-min long-break cycle — 20 min remain before the long break.
+        state.LastLongBreakAt = DateTimeOffset.UtcNow.AddMinutes(-40);
+
+        commands.Writer.TryWrite(new SkipBreakCommand(BreakTier.Micro, IsCompletion: true));
+        commands.Writer.Complete();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await handler.StartAsync(cts.Token);
+        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+
+        // The long-break timer must still show ~40 min elapsed, not 0 (reset).
+        var longElapsed = (DateTimeOffset.UtcNow - state.LastLongBreakAt).TotalMinutes;
+        Assert.True(longElapsed >= 39,
+            $"LastLongBreakAt must not be reset on micro completion; elapsed = {longElapsed:F1} min");
+    }
+
+    // Completing or skipping a long break must reset LastLongBreakAt so the next
+    // long break fires a full interval later.
+    [Fact]
+    public async Task Skip_WithLongTier_ResetsLongBreakTimer()
+    {
+        var commands = Channel.CreateUnbounded<BreakCommand>();
+        var state = new BreakTimerState();
+        var settings = new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 30 },
+            LongBreak  = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
+            Snooze = new SnoozeSettings { IncrementMinutes = 5 }
+        };
+        var handler = new BreakCommandHandlerService(
+            commands, state,
+            new EventLogger(NullLogger<EventLogger>.Instance),
+            new OptionsMonitorStub(settings),
+            NullLogger<BreakCommandHandlerService>.Instance);
+
+        state.LastLongBreakAt = DateTimeOffset.UtcNow.AddMinutes(-60);
+
+        commands.Writer.TryWrite(new SkipBreakCommand(BreakTier.Long, IsCompletion: true));
+        commands.Writer.Complete();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await handler.StartAsync(cts.Token);
+        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+
+        var longElapsed = (DateTimeOffset.UtcNow - state.LastLongBreakAt).TotalSeconds;
+        Assert.True(longElapsed < 5,
+            $"LastLongBreakAt must be reset after long-break completion; elapsed = {longElapsed:F1} s");
+    }
+
     private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>
     {
         public AppSettings CurrentValue => value;

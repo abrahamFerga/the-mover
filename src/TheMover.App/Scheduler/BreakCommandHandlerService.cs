@@ -92,7 +92,13 @@ public sealed class BreakCommandHandlerService : BackgroundService
         var now = DateTimeOffset.UtcNow;
         _state.SnoozedUntil = null;
         _state.LastMicroBreakAt = now;
-        _state.LastLongBreakAt = now;
+        // Only reset the long-break timer when a long break was skipped or completed.
+        // Completing a micro break must not reset LastLongBreakAt — doing so prevents
+        // the long break from ever firing for users who take every micro break.
+        if (tier != BreakTier.Micro)
+        {
+            _state.LastLongBreakAt = now;
+        }
         // Mirror the snooze fix: update NextBreakAt immediately so the tray countdown
         // reflects the next break time rather than the stale fire timestamp.
         // BreakSchedulerService calls SyncNextBreak within ≤1 s, but this closes the gap.
