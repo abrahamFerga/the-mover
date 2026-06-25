@@ -280,6 +280,37 @@ public sealed class BreakCommandHandlerTests
         Assert.Equal(beforeMicro, state.LastMicroBreakAt); // timestamps unchanged
     }
 
+    // After a skip/completion the tray countdown must show the next break time, not a
+    // stale fire timestamp. MicroBreak interval is used because both timers are reset.
+    [Fact]
+    public async Task Skip_SetsNextBreakAtToMicroInterval()
+    {
+        var commands = Channel.CreateUnbounded<BreakCommand>();
+        var state = new BreakTimerState();
+        var settings = new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 30 },
+            LongBreak  = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
+            Snooze = new SnoozeSettings { IncrementMinutes = 5 }
+        };
+        var handler = new BreakCommandHandlerService(
+            commands, state,
+            new EventLogger(NullLogger<EventLogger>.Instance),
+            new OptionsMonitorStub(settings),
+            NullLogger<BreakCommandHandlerService>.Instance);
+
+        commands.Writer.TryWrite(new SkipBreakCommand(BreakTier.Micro));
+        commands.Writer.Complete();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await handler.StartAsync(cts.Token);
+        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+
+        var expectedNext = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(20);
+        Assert.True(Math.Abs((state.NextBreakAt - expectedNext).TotalSeconds) < 5,
+            "NextBreakAt must equal now + micro interval after a skip");
+    }
+
     // After a snooze the tray countdown must show the snooze expiry time, not a
     // stale pre-snooze NextBreakAt (SyncNextBreak won't run while the scheduler is paused).
     [Fact]
