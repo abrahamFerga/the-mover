@@ -169,13 +169,17 @@ public sealed class TrayIconService : IHostedService, IDisposable
         });
     }
 
-    private string BuildActiveTooltip()
+    private string BuildActiveTooltip() =>
+        BuildActiveTooltipText(_state.NextBreakAt, DateTimeOffset.UtcNow);
+
+    // Extracted for unit testing — all parameters injected so the method is pure.
+    internal static string BuildActiveTooltipText(DateTimeOffset nextBreakAt, DateTimeOffset now)
     {
         // Guard against the DateTimeOffset.MaxValue default before the scheduler
         // has called SyncNextBreak — casting MaxValue.TotalMinutes to int overflows.
-        if (_state.NextBreakAt == DateTimeOffset.MaxValue)
+        if (nextBreakAt == DateTimeOffset.MaxValue)
             return "The Mover — Break reminder active";
-        var remaining = _state.NextBreakAt - DateTimeOffset.UtcNow;
+        var remaining = nextBreakAt - now;
         if (remaining <= TimeSpan.Zero)
             return "The Mover — Break due";
         var mins = (int)Math.Ceiling(remaining.TotalMinutes);

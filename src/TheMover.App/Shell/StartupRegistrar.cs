@@ -36,17 +36,4 @@ public sealed class StartupRegistrar(ILogger<StartupRegistrar> logger)
         }
     }
 
-    public bool IsStartupEnabled()
-    {
-        try
-        {
-            using var key = Registry.CurrentUser.OpenSubKey(RegistryKey);
-            return key?.GetValue(ValueName) is not null;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to read startup registration state");
-            return false;
-        }
-    }
 }
