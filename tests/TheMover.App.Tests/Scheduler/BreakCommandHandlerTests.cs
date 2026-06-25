@@ -314,8 +314,7 @@ public sealed class BreakCommandHandlerTests
         await handler.ExecuteTask!;
 
         Assert.NotNull(state.SnoozedUntil);
-        Assert.True(Math.Abs((state.NextBreakAt - state.SnoozedUntil!.Value).TotalSeconds) < 2,
-            "NextBreakAt should equal SnoozedUntil so the tray shows the snooze expiry countdown");
+        Assert.Equal(state.SnoozedUntil!.Value, state.NextBreakAt);
     }
 
     // Snoozing a long break must shift LastLongBreakAt so the long break re-fires at
@@ -352,8 +351,7 @@ public sealed class BreakCommandHandlerTests
         // At snooze expiry the elapsed time since LastLongBreakAt must be ~60 min
         // so the scheduler fires the long break (not just a micro break).
         var longElapsedAtExpiry = (state.SnoozedUntil!.Value - state.LastLongBreakAt).TotalMinutes;
-        Assert.True(Math.Abs(longElapsedAtExpiry - 60.0) < 1,
-            $"Long-break timer must shift to expiry when tier is Long; elapsed = {longElapsedAtExpiry:F1} min");
+        Assert.Equal(60.0, longElapsedAtExpiry);
     }
 
     // Snoozng a micro break must not advance the long-break timer when the long break

@@ -152,7 +152,7 @@ public sealed class BreakSchedulerServiceTests
         await svc.CheckAndFireAsync(now);
 
         var expectedNext = now + TimeSpan.FromMinutes(20);
-        Assert.True(Math.Abs((state.NextBreakAt - expectedNext).TotalSeconds) < 5);
+        Assert.Equal(expectedNext, state.NextBreakAt);
     }
 
     [Fact]
@@ -169,7 +169,7 @@ public sealed class BreakSchedulerServiceTests
 
         // After a long break, both timers reset to now; next break is micro in 20 min
         var expectedNext = now + TimeSpan.FromMinutes(20);
-        Assert.True(Math.Abs((state.NextBreakAt - expectedNext).TotalSeconds) < 5);
+        Assert.Equal(expectedNext, state.NextBreakAt);
         Assert.Equal(BreakTier.Micro, state.Tier);
     }
 
