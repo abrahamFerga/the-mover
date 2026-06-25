@@ -38,7 +38,7 @@ public sealed class BreakCommandHandlerService : BackgroundService
             switch (command)
             {
                 case SnoozeBreakCommand snooze:
-                    HandleSnooze(snooze.Minutes, snooze.Source);
+                    HandleSnooze(snooze.Minutes, snooze.Tier, snooze.Source);
                     break;
 
                 case SkipBreakCommand skip:
@@ -48,7 +48,7 @@ public sealed class BreakCommandHandlerService : BackgroundService
         }
     }
 
-    private void HandleSnooze(int minutes, string? source)
+    private void HandleSnooze(int minutes, BreakTier? tier, string? source)
     {
         if (minutes <= 0 || minutes > 1440)
         {
@@ -65,12 +65,13 @@ public sealed class BreakCommandHandlerService : BackgroundService
             - TimeSpan.FromMinutes(settings.MicroBreak.IntervalMinutes)
             + TimeSpan.FromMinutes(minutes);
 
-        // Only shift the long-break timer if it was already due at snooze time.
-        // Shifting it unconditionally would make the long break fire at snooze expiry
-        // even when it last fired recently — e.g. a user snoozing their first micro break
-        // (T=20 into a 60-min long cycle) would get a spurious long break at T=25.
+        // Shift the long-break timer only when the long break was actually snoozed, or
+        // when it was already overdue at snooze time.  Without the tier check, a micro-break
+        // snooze (T=20 into a 60-min cycle) would make the long break fire at T=25 instead
+        // of its natural T=60.  With the tier check, a long-break snooze correctly re-fires
+        // at expiry even though the scheduler already reset LastLongBreakAt to "now".
         var longInterval = TimeSpan.FromMinutes(settings.LongBreak.IntervalMinutes);
-        if (now - _state.LastLongBreakAt >= longInterval)
+        if (tier == BreakTier.Long || now - _state.LastLongBreakAt >= longInterval)
         {
             _state.LastLongBreakAt = now - longInterval + TimeSpan.FromMinutes(minutes);
         }

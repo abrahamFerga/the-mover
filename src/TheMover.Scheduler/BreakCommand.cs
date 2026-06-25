@@ -7,5 +7,6 @@ public abstract record BreakCommand;
 // IsCompletion = true when the overlay timer expired naturally — handler skips the Dismissed log in that case.
 public sealed record SkipBreakCommand(BreakTier? Tier = null, bool IsCompletion = false) : BreakCommand;
 
+// Tier carries which break was snoozed so the handler knows whether to shift LastLongBreakAt.
 // Source distinguishes overlay vs tray snooze in the event log.
-public sealed record SnoozeBreakCommand(int Minutes, string? Source = null) : BreakCommand;
+public sealed record SnoozeBreakCommand(int Minutes, BreakTier? Tier = null, string? Source = null) : BreakCommand;

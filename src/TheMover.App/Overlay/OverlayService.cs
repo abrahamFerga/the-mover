@@ -85,7 +85,7 @@ public sealed class OverlayService : BackgroundService
                 },
                 onSnooze: () =>
                 {
-                    _breakCommandChannel.Writer.TryWrite(new SnoozeBreakCommand(snoozeMinutes, Source: "overlay"));
+                    _breakCommandChannel.Writer.TryWrite(new SnoozeBreakCommand(snoozeMinutes, evt.Tier, Source: "overlay"));
                     _tray.HideBreakActions();
                 },
                 onSkip: () =>

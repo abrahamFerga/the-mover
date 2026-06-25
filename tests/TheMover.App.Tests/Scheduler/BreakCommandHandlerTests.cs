@@ -330,6 +330,45 @@ public sealed class BreakCommandHandlerTests
             "NextBreakAt should equal SnoozedUntil so the tray shows the snooze expiry countdown");
     }
 
+    // Snoozing a long break must shift LastLongBreakAt so the long break re-fires at
+    // snooze expiry.  Without the Tier field, HandleSnooze sees ~0 ms elapsed since
+    // LastLongBreakAt (the scheduler just reset it) and skips the shift, causing the
+    // long break to fire 60 min later instead of at snooze expiry.
+    [Fact]
+    public async Task Snooze_WithLongTier_ShiftsLongBreakTimerToExpiry()
+    {
+        var commands = Channel.CreateUnbounded<BreakCommand>();
+        var state = new BreakTimerState();
+        var settings = new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 30 },
+            LongBreak  = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
+            Snooze = new SnoozeSettings { IncrementMinutes = 5 }
+        };
+        var handler = new BreakCommandHandlerService(
+            commands, state,
+            new EventLogger(NullLogger<EventLogger>.Instance),
+            new OptionsMonitorStub(settings),
+            NullLogger<BreakCommandHandlerService>.Instance);
+
+        // Simulate the scheduler having just fired and reset LastLongBreakAt to now.
+        state.LastLongBreakAt = DateTimeOffset.UtcNow;
+        state.LastMicroBreakAt = DateTimeOffset.UtcNow;
+
+        commands.Writer.TryWrite(new SnoozeBreakCommand(5, BreakTier.Long));
+        commands.Writer.Complete();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await handler.StartAsync(cts.Token);
+        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+
+        // At snooze expiry the elapsed time since LastLongBreakAt must be ~60 min
+        // so the scheduler fires the long break (not just a micro break).
+        var longElapsedAtExpiry = (state.SnoozedUntil!.Value - state.LastLongBreakAt).TotalMinutes;
+        Assert.True(Math.Abs(longElapsedAtExpiry - 60.0) < 1,
+            $"Long-break timer must shift to expiry when tier is Long; elapsed = {longElapsedAtExpiry:F1} min");
+    }
+
     // Snoozng a micro break must not advance the long-break timer when the long break
     // is not yet due.  The original handler always set LastLongBreakAt = now - longInterval
     // + snooze regardless, which caused a spurious long break at snooze expiry whenever

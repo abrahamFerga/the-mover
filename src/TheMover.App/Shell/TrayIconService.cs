@@ -110,7 +110,7 @@ public sealed class TrayIconService : IHostedService, IDisposable
     private void OnSnoozeClick(object sender, RoutedEventArgs e)
     {
         var minutes = _options.CurrentValue.Snooze.IncrementMinutes;
-        _breakCommandChannel.Writer.TryWrite(new SnoozeBreakCommand(minutes));
+        _breakCommandChannel.Writer.TryWrite(new SnoozeBreakCommand(minutes, _state.FiringTier));
         HideBreakActions();
     }
 
