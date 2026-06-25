@@ -7,8 +7,7 @@ namespace TheMover.App.Logging;
 
 public sealed class EventLogger
 {
-    private static readonly JsonSerializerOptions Opts =
-        new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private static readonly JsonSerializerOptions Opts = new();
 
     private readonly string _logPath;
     private readonly ILogger<EventLogger> _logger;
