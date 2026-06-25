@@ -29,7 +29,7 @@ public sealed class BreakSchedulerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        SyncNextBreak(DateTimeOffset.UtcNow);
+        SyncNextBreak();
 
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
         while (await timer.WaitForNextTickAsync(stoppingToken))
@@ -52,7 +52,7 @@ public sealed class BreakSchedulerService : BackgroundService
             await FireAsync(BreakTier.Long, now);
             _state.LastLongBreakAt = now;
             _state.LastMicroBreakAt = now;
-            SyncNextBreak(now);
+            SyncNextBreak();
             return true;
         }
 
@@ -60,13 +60,13 @@ public sealed class BreakSchedulerService : BackgroundService
         {
             await FireAsync(BreakTier.Micro, now);
             _state.LastMicroBreakAt = now;
-            SyncNextBreak(now);
+            SyncNextBreak();
             return true;
         }
 
         // Keep NextBreakAt in sync every tick so the tray countdown reflects
         // any settings change made while the app is running.
-        SyncNextBreak(now);
+        SyncNextBreak();
         return false;
     }
 
@@ -78,7 +78,8 @@ public sealed class BreakSchedulerService : BackgroundService
         _logger.LogInformation("Break due: {Tier}", tier);
     }
 
-    private void SyncNextBreak(DateTimeOffset now)
+    // No 'now' needed — computes entirely from stored last-break timestamps and settings.
+    private void SyncNextBreak()
     {
         var settings = _options.CurrentValue;
         var nextMicro = _state.LastMicroBreakAt + TimeSpan.FromMinutes(settings.MicroBreak.IntervalMinutes);
