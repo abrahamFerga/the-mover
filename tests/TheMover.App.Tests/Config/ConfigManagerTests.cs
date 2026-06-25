@@ -123,6 +123,48 @@ public sealed class ConfigManagerTests
         finally { TryDelete(path); }
     }
 
+    [Fact]
+    public async Task SaveAsync_RoundTrips_SnoozeSettings()
+    {
+        var path = TempPath();
+        try
+        {
+            var settings = new AppSettings { Snooze = new SnoozeSettings { IncrementMinutes = 7 } };
+            await BuildWithTempPath(path).SaveAsync(settings);
+
+            var json = await File.ReadAllTextAsync(path);
+            var loaded = JsonSerializer.Deserialize<AppSettings>(json)!;
+            Assert.Equal(7, loaded.Snooze.IncrementMinutes);
+        }
+        finally { TryDelete(path); }
+    }
+
+    [Fact]
+    public async Task SaveAsync_RoundTrips_CalendarSettings()
+    {
+        var path = TempPath();
+        try
+        {
+            var settings = new AppSettings
+            {
+                Calendar = new CalendarSettings
+                {
+                    Enabled = true,
+                    TenantId = "tenant-123",
+                    ClientId = "client-456",
+                }
+            };
+            await BuildWithTempPath(path).SaveAsync(settings);
+
+            var json = await File.ReadAllTextAsync(path);
+            var loaded = JsonSerializer.Deserialize<AppSettings>(json)!;
+            Assert.True(loaded.Calendar.Enabled);
+            Assert.Equal("tenant-123", loaded.Calendar.TenantId);
+            Assert.Equal("client-456", loaded.Calendar.ClientId);
+        }
+        finally { TryDelete(path); }
+    }
+
     private static string TempPath() =>
         Path.Combine(Path.GetTempPath(), $"cm-{Guid.NewGuid():N}.json");
 
