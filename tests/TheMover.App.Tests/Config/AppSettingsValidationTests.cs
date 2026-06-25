@@ -68,4 +68,43 @@ public sealed class AppSettingsValidationTests
         Assert.False(Validator.TryValidateObject(tier, new ValidationContext(tier), results, validateAllProperties: true));
         Assert.Contains(results, r => r.MemberNames.Contains(nameof(BreakTierSettings.DurationSeconds)));
     }
+
+    // Cross-field: micro interval must be strictly less than long interval.
+    [Fact]
+    public void Settings_WhenMicroEqualsLong_FailsValidation()
+    {
+        var settings = new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 30, DurationSeconds = 30 },
+            LongBreak  = new BreakTierSettings { IntervalMinutes = 30, DurationSeconds = 300 },
+        };
+        var results = new List<ValidationResult>();
+        Assert.False(Validator.TryValidateObject(settings, new ValidationContext(settings), results, validateAllProperties: true));
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(AppSettings.MicroBreak)));
+    }
+
+    [Fact]
+    public void Settings_WhenMicroGreaterThanLong_FailsValidation()
+    {
+        var settings = new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 30 },
+            LongBreak  = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 300 },
+        };
+        var results = new List<ValidationResult>();
+        Assert.False(Validator.TryValidateObject(settings, new ValidationContext(settings), results, validateAllProperties: true));
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(AppSettings.MicroBreak)));
+    }
+
+    [Fact]
+    public void Settings_WhenMicroLessThanLong_PassesValidation()
+    {
+        var settings = new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 30 },
+            LongBreak  = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
+        };
+        var results = new List<ValidationResult>();
+        Assert.True(Validator.TryValidateObject(settings, new ValidationContext(settings), results, validateAllProperties: true));
+    }
 }

@@ -3,13 +3,27 @@ using System.ComponentModel.DataAnnotations;
 
 namespace TheMover.App.Config;
 
-public sealed class AppSettings
+public sealed class AppSettings : IValidatableObject
 {
     public BreakTierSettings MicroBreak { get; set; } = new() { IntervalMinutes = 20, DurationSeconds = 30 };
     public BreakTierSettings LongBreak { get; set; } = new() { IntervalMinutes = 60, DurationSeconds = 300 };
     public bool AutoStartWithWindows { get; set; } = false;
     public SnoozeSettings Snooze { get; set; } = new();
     public CalendarSettings Calendar { get; set; } = new();
+
+    // Cross-field constraint: micro must fire more often than long, otherwise
+    // the long timer fires first on every cycle and micro breaks never occur.
+    // Enforced here at the model level (not only in SettingsWindow.TryParseSettings)
+    // so direct edits to appsettings.local.json are caught by ValidateOnStart().
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (MicroBreak.IntervalMinutes >= LongBreak.IntervalMinutes)
+        {
+            yield return new ValidationResult(
+                "Micro-break interval must be shorter than the long-break interval.",
+                [nameof(MicroBreak), nameof(LongBreak)]);
+        }
+    }
 }
 
 public sealed class BreakTierSettings
