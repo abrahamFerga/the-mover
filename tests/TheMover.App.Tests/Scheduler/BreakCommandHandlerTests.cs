@@ -330,6 +330,44 @@ public sealed class BreakCommandHandlerTests
             "NextBreakAt should equal SnoozedUntil so the tray shows the snooze expiry countdown");
     }
 
+    // Snoozng a micro break must not advance the long-break timer when the long break
+    // is not yet due.  The original handler always set LastLongBreakAt = now - longInterval
+    // + snooze regardless, which caused a spurious long break at snooze expiry whenever
+    // the micro break fired early in a long-break cycle (e.g. T=20 into a 60-min cycle).
+    [Fact]
+    public async Task Snooze_WhenLongBreakNotDue_DoesNotShiftLongBreakTimer()
+    {
+        var commands = Channel.CreateUnbounded<BreakCommand>();
+        var state = new BreakTimerState();
+        var settings = new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 30 },
+            LongBreak  = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
+            Snooze = new SnoozeSettings { IncrementMinutes = 5 }
+        };
+        var handler = new BreakCommandHandlerService(
+            commands, state,
+            new EventLogger(NullLogger<EventLogger>.Instance),
+            new OptionsMonitorStub(settings),
+            NullLogger<BreakCommandHandlerService>.Instance);
+
+        // Last long break was 20 min ago → 40 min remain before the next one.
+        state.LastLongBreakAt = DateTimeOffset.UtcNow.AddMinutes(-20);
+
+        commands.Writer.TryWrite(new SnoozeBreakCommand(5));
+        commands.Writer.Complete();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await handler.StartAsync(cts.Token);
+        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+
+        // At snooze expiry the elapsed time since LastLongBreakAt must be < 60 min.
+        // If >= 60, the scheduler would fire a premature long break instead of micro.
+        var longElapsedAtExpiry = (state.SnoozedUntil!.Value - state.LastLongBreakAt).TotalMinutes;
+        Assert.True(longElapsedAtExpiry < 60,
+            $"Long-break timer must not shift when long break is not due; elapsed at expiry = {longElapsedAtExpiry:F1} min");
+    }
+
     private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>
     {
         public AppSettings CurrentValue => value;

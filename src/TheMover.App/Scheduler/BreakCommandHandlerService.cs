@@ -58,15 +58,22 @@ public sealed class BreakCommandHandlerService : BackgroundService
 
         var now = DateTimeOffset.UtcNow;
         var settings = _options.CurrentValue;
-        // Shift break timestamps back so the reminder re-fires when the snooze expires,
+        // Shift the micro timer so the break re-fires exactly when the snooze expires,
         // not a full interval later.  Without this, a 5-min snooze on a 20-min micro
         // cycle would delay the next reminder by 25 minutes instead of 5.
         _state.LastMicroBreakAt = now
             - TimeSpan.FromMinutes(settings.MicroBreak.IntervalMinutes)
             + TimeSpan.FromMinutes(minutes);
-        _state.LastLongBreakAt = now
-            - TimeSpan.FromMinutes(settings.LongBreak.IntervalMinutes)
-            + TimeSpan.FromMinutes(minutes);
+
+        // Only shift the long-break timer if it was already due at snooze time.
+        // Shifting it unconditionally would make the long break fire at snooze expiry
+        // even when it last fired recently — e.g. a user snoozing their first micro break
+        // (T=20 into a 60-min long cycle) would get a spurious long break at T=25.
+        var longInterval = TimeSpan.FromMinutes(settings.LongBreak.IntervalMinutes);
+        if (now - _state.LastLongBreakAt >= longInterval)
+        {
+            _state.LastLongBreakAt = now - longInterval + TimeSpan.FromMinutes(minutes);
+        }
         _state.SnoozedUntil = now.AddMinutes(minutes);
         // Update the tray countdown so it shows the snooze expiry time rather than
         // the stale pre-snooze NextBreakAt (SyncNextBreak won't run while paused).
