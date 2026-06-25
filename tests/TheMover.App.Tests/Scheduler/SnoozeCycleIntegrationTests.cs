@@ -47,9 +47,8 @@ public sealed class SnoozeCycleIntegrationTests
         commandChannel.Writer.TryWrite(new SnoozeBreakCommand(snoozeMinutes));
         commandChannel.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        await Task.Delay(80, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         // The handler set SnoozedUntil = handlerNow + 5 min.
         // Derive handlerNow from SnoozedUntil to align the synthetic clock below.
@@ -103,9 +102,8 @@ public sealed class SnoozeCycleIntegrationTests
         commandChannel.Writer.TryWrite(new SnoozeBreakCommand(snoozeMinutes));
         commandChannel.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        await Task.Delay(80, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         Assert.NotNull(state.SnoozedUntil);
         var handlerNow = state.SnoozedUntil!.Value - TimeSpan.FromMinutes(snoozeMinutes);

@@ -35,10 +35,8 @@ public sealed class BreakCommandHandlerTests
         commands.Writer.TryWrite(new SnoozeBreakCommand(5));
         commands.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        // Let the handler consume the command
-        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         Assert.NotNull(state.SnoozedUntil);
         Assert.True(state.SnoozedUntil > DateTimeOffset.UtcNow);
@@ -51,9 +49,8 @@ public sealed class BreakCommandHandlerTests
         commands.Writer.TryWrite(new SnoozeBreakCommand(5));
         commands.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         Assert.True(state.IsPaused);
     }
@@ -70,9 +67,8 @@ public sealed class BreakCommandHandlerTests
         commands.Writer.TryWrite(new SkipBreakCommand());
         commands.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         Assert.True(state.LastMicroBreakAt > longAgo);
         Assert.True(state.LastLongBreakAt > longAgo);
@@ -87,9 +83,8 @@ public sealed class BreakCommandHandlerTests
         commands.Writer.TryWrite(new SkipBreakCommand());
         commands.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         Assert.Null(state.SnoozedUntil);
     }
@@ -117,9 +112,8 @@ public sealed class BreakCommandHandlerTests
         commands.Writer.TryWrite(new SnoozeBreakCommand(5));
         commands.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         // 5 minutes after the snooze is issued, the micro interval (20 min) must have elapsed
         // relative to LastMicroBreakAt so the scheduler fires immediately on snooze expiry.
@@ -150,9 +144,8 @@ public sealed class BreakCommandHandlerTests
             commands.Writer.TryWrite(new SnoozeBreakCommand(5, Source: "overlay"));
             commands.Writer.Complete();
 
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            await handler.StartAsync(cts.Token);
-            await Task.Delay(100, cts.Token).ContinueWith(_ => { });
+            await handler.StartAsync(CancellationToken.None);
+            await handler.ExecuteTask!;
 
             var log = File.ReadAllText(logPath);
             Assert.Contains("\"event\":\"Snoozed\"", log);
@@ -186,9 +179,8 @@ public sealed class BreakCommandHandlerTests
             commands.Writer.TryWrite(new SnoozeBreakCommand(5));
             commands.Writer.Complete();
 
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            await handler.StartAsync(cts.Token);
-            await Task.Delay(100, cts.Token).ContinueWith(_ => { });
+            await handler.StartAsync(CancellationToken.None);
+            await handler.ExecuteTask!;
 
             var log = File.ReadAllText(logPath);
             Assert.Contains("\"source\":\"tray\"", log);
@@ -215,9 +207,8 @@ public sealed class BreakCommandHandlerTests
             commands.Writer.TryWrite(new SkipBreakCommand(BreakTier.Long));
             commands.Writer.Complete();
 
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            await handler.StartAsync(cts.Token);
-            await Task.Delay(100, cts.Token).ContinueWith(_ => { });
+            await handler.StartAsync(CancellationToken.None);
+            await handler.ExecuteTask!;
 
             var log = File.ReadAllText(logPath);
             Assert.Contains("\"event\":\"Dismissed\"", log);
@@ -245,9 +236,8 @@ public sealed class BreakCommandHandlerTests
             commands.Writer.TryWrite(new SkipBreakCommand(BreakTier.Micro, IsCompletion: true));
             commands.Writer.Complete();
 
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            await handler.StartAsync(cts.Token);
-            await Task.Delay(100, cts.Token).ContinueWith(_ => { });
+            await handler.StartAsync(CancellationToken.None);
+            await handler.ExecuteTask!;
 
             // Natural completion: no Dismissed event, timers reset
             Assert.False(File.Exists(logPath), "No event log should be written for natural completion");
@@ -273,9 +263,8 @@ public sealed class BreakCommandHandlerTests
         commands.Writer.TryWrite(new SnoozeBreakCommand(invalidMinutes));
         commands.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         Assert.Equal(before, state.SnoozedUntil);       // no snooze set
         Assert.Equal(beforeMicro, state.LastMicroBreakAt); // timestamps unchanged
@@ -303,9 +292,8 @@ public sealed class BreakCommandHandlerTests
         commands.Writer.TryWrite(new SkipBreakCommand(BreakTier.Micro));
         commands.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         var expectedNext = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(20);
         Assert.True(Math.Abs((state.NextBreakAt - expectedNext).TotalSeconds) < 5,
@@ -322,9 +310,8 @@ public sealed class BreakCommandHandlerTests
         commands.Writer.TryWrite(new SnoozeBreakCommand(5));
         commands.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         Assert.NotNull(state.SnoozedUntil);
         Assert.True(Math.Abs((state.NextBreakAt - state.SnoozedUntil!.Value).TotalSeconds) < 2,
@@ -359,9 +346,8 @@ public sealed class BreakCommandHandlerTests
         commands.Writer.TryWrite(new SnoozeBreakCommand(5, BreakTier.Long));
         commands.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         // At snooze expiry the elapsed time since LastLongBreakAt must be ~60 min
         // so the scheduler fires the long break (not just a micro break).
@@ -397,9 +383,8 @@ public sealed class BreakCommandHandlerTests
         commands.Writer.TryWrite(new SnoozeBreakCommand(5));
         commands.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         // At snooze expiry the elapsed time since LastLongBreakAt must be < 60 min.
         // If >= 60, the scheduler would fire a premature long break instead of micro.
@@ -435,9 +420,8 @@ public sealed class BreakCommandHandlerTests
         commands.Writer.TryWrite(new SkipBreakCommand(BreakTier.Micro));
         commands.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         var remaining = (state.NextBreakAt - DateTimeOffset.UtcNow).TotalMinutes;
         Assert.True(Math.Abs(remaining - 5) < 1,
@@ -470,9 +454,8 @@ public sealed class BreakCommandHandlerTests
         commands.Writer.TryWrite(new SkipBreakCommand(BreakTier.Micro, IsCompletion: true));
         commands.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         // The long-break timer must still show ~40 min elapsed, not 0 (reset).
         var longElapsed = (DateTimeOffset.UtcNow - state.LastLongBreakAt).TotalMinutes;
@@ -504,9 +487,8 @@ public sealed class BreakCommandHandlerTests
         commands.Writer.TryWrite(new SkipBreakCommand(BreakTier.Long, IsCompletion: true));
         commands.Writer.Complete();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        await handler.StartAsync(cts.Token);
-        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+        await handler.StartAsync(CancellationToken.None);
+        await handler.ExecuteTask!;
 
         var longElapsed = (DateTimeOffset.UtcNow - state.LastLongBreakAt).TotalSeconds;
         Assert.True(longElapsed < 5,
