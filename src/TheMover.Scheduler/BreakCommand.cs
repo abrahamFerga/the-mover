@@ -9,4 +9,5 @@ public sealed record SkipBreakCommand(BreakTier? Tier = null, bool IsCompletion 
 
 // Tier carries which break was snoozed so the handler knows whether to shift LastLongBreakAt.
 // Source distinguishes overlay vs tray snooze in the event log.
-public sealed record SnoozeBreakCommand(int Minutes, BreakTier? Tier = null, string? Source = null) : BreakCommand;
+// Source defaults to "tray" so omitting it (the common tray path) still produces a meaningful log entry.
+public sealed record SnoozeBreakCommand(int Minutes, BreakTier? Tier = null, string Source = "tray") : BreakCommand;

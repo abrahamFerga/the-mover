@@ -48,7 +48,7 @@ public sealed class BreakCommandHandlerService : BackgroundService
         }
     }
 
-    private void HandleSnooze(int minutes, BreakTier? tier, string? source)
+    private void HandleSnooze(int minutes, BreakTier? tier, string source)
     {
         if (minutes <= 0 || minutes > 1440)
         {
@@ -82,9 +82,9 @@ public sealed class BreakCommandHandlerService : BackgroundService
         _eventLogger.Log(AppEventType.Snoozed, new Dictionary<string, object?>
         {
             ["minutes"] = minutes,
-            ["source"] = source ?? "tray"
+            ["source"] = source
         });
-        _logger.LogInformation("Break snoozed for {Minutes} min (source: {Source})", minutes, source ?? "tray");
+        _logger.LogInformation("Break snoozed for {Minutes} min (source: {Source})", minutes, source);
     }
 
     private void HandleSkip(BreakTier? tier, bool isCompletion)
