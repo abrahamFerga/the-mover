@@ -2,8 +2,8 @@
 using System.IO;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using TheMover.App.Config;
+using TheMover.App.Tests;
 
 namespace TheMover.App.Tests.Config;
 
@@ -204,12 +204,5 @@ public sealed class ConfigManagerTests
     private static void TryDelete(string path)
     {
         if (File.Exists(path)) File.Delete(path);
-    }
-
-    private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>
-    {
-        public AppSettings CurrentValue => value;
-        public AppSettings Get(string? name) => value;
-        public IDisposable? OnChange(Action<AppSettings, string?> listener) => null;
     }
 }
