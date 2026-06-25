@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using TheMover.App.Config;
 using TheMover.App.Scheduler;
 using TheMover.Scheduler;
+using TheMover.App.Tests;
 
 namespace TheMover.App.Tests.Scheduler;
 
@@ -213,10 +214,4 @@ public sealed class BreakSchedulerServiceTests
         public IDisposable? OnChange(Action<AppSettings, string?> listener) => null;
     }
 
-    private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>
-    {
-        public AppSettings CurrentValue => value;
-        public AppSettings Get(string? name) => value;
-        public IDisposable? OnChange(Action<AppSettings, string?> listener) => null;
-    }
 }

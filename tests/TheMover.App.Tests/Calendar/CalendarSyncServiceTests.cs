@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using TheMover.App.Calendar;
 using TheMover.App.Config;
+using TheMover.App.Tests;
 using TheMover.Calendar;
 using TheMover.Scheduler;
 
@@ -140,13 +141,6 @@ public sealed class CalendarSyncServiceTests
     }
 
     // -----------------------------------------------------------------------
-
-    private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>
-    {
-        public AppSettings CurrentValue => value;
-        public AppSettings Get(string? name) => value;
-        public IDisposable? OnChange(Action<AppSettings, string?> listener) => null;
-    }
 
     private sealed class FakeCalendarClient(bool isConnected, bool inMeeting) : ICalendarClient
     {

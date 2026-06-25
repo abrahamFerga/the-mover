@@ -8,6 +8,7 @@ using TheMover.App.Config;
 using TheMover.App.Logging;
 using TheMover.App.Scheduler;
 using TheMover.Scheduler;
+using TheMover.App.Tests;
 
 namespace TheMover.App.Tests.Scheduler;
 
@@ -476,10 +477,4 @@ public sealed class BreakCommandHandlerTests
             $"LastLongBreakAt must be reset after long-break completion; elapsed = {longElapsed:F1} s");
     }
 
-    private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>
-    {
-        public AppSettings CurrentValue => value;
-        public AppSettings Get(string? name) => value;
-        public IDisposable? OnChange(Action<AppSettings, string?> listener) => null;
-    }
 }

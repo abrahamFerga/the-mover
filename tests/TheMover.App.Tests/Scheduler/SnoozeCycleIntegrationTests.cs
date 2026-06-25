@@ -6,6 +6,7 @@ using TheMover.App.Config;
 using TheMover.App.Logging;
 using TheMover.App.Scheduler;
 using TheMover.Scheduler;
+using TheMover.App.Tests;
 
 namespace TheMover.App.Tests.Scheduler;
 
@@ -117,10 +118,4 @@ public sealed class SnoozeCycleIntegrationTests
         Assert.False(firedBefore, "Scheduler must not fire before the snooze delay has fully elapsed");
     }
 
-    private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>
-    {
-        public AppSettings CurrentValue => value;
-        public AppSettings Get(string? name) => value;
-        public IDisposable? OnChange(Action<AppSettings, string?> listener) => null;
-    }
 }
