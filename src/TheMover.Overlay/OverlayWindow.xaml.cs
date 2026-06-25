@@ -111,4 +111,14 @@ public partial class OverlayWindow : Window
                 break;
         }
     }
+
+    // Stop the countdown whenever the window closes — including external closes
+    // triggered by the cancellation-token handler in OverlayService.  Without this,
+    // the DispatcherTimer keeps ticking on a closed window until _remaining reaches
+    // zero, then fires _onComplete and a redundant Close() call.
+    protected override void OnClosed(EventArgs e)
+    {
+        _countdown.Stop();
+        base.OnClosed(e);
+    }
 }
