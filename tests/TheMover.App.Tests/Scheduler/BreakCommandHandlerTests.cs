@@ -282,7 +282,7 @@ public sealed class BreakCommandHandlerTests
     }
 
     // After a skip/completion the tray countdown must show the next break time, not a
-    // stale fire timestamp. MicroBreak interval is used because both timers are reset.
+    // stale fire timestamp. The long break is not yet due here, so the micro interval wins.
     [Fact]
     public async Task Skip_SetsNextBreakAtToMicroInterval()
     {
@@ -406,6 +406,42 @@ public sealed class BreakCommandHandlerTests
         var longElapsedAtExpiry = (state.SnoozedUntil!.Value - state.LastLongBreakAt).TotalMinutes;
         Assert.True(longElapsedAtExpiry < 60,
             $"Long-break timer must not shift when long break is not due; elapsed at expiry = {longElapsedAtExpiry:F1} min");
+    }
+
+    // When the long break is imminent after a micro skip, NextBreakAt must point to the
+    // long break, not the full micro interval.  Before the fix, HandleSkip always wrote
+    // now + microInterval, leaving the tray showing "20 min" when the long break was
+    // actually 5 min away (until SyncNextBreak corrected it up to 30 s later).
+    [Fact]
+    public async Task Skip_WithMicroTier_SetsNextBreakAtToLongInterval_WhenLongIsDueFirst()
+    {
+        var commands = Channel.CreateUnbounded<BreakCommand>();
+        var state = new BreakTimerState();
+        var settings = new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 20, DurationSeconds = 30 },
+            LongBreak  = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
+            Snooze = new SnoozeSettings { IncrementMinutes = 5 }
+        };
+        var handler = new BreakCommandHandlerService(
+            commands, state,
+            new EventLogger(NullLogger<EventLogger>.Instance),
+            new OptionsMonitorStub(settings),
+            NullLogger<BreakCommandHandlerService>.Instance);
+
+        // Long break was 55 min ago — only 5 min remain before it fires.
+        state.LastLongBreakAt = DateTimeOffset.UtcNow.AddMinutes(-55);
+
+        commands.Writer.TryWrite(new SkipBreakCommand(BreakTier.Micro));
+        commands.Writer.Complete();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await handler.StartAsync(cts.Token);
+        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+
+        var remaining = (state.NextBreakAt - DateTimeOffset.UtcNow).TotalMinutes;
+        Assert.True(Math.Abs(remaining - 5) < 1,
+            $"NextBreakAt must point to the imminent long break (~5 min), not the micro interval; remaining = {remaining:F1} min");
     }
 
     // Completing a micro break must not reset LastLongBreakAt — otherwise the long

@@ -102,7 +102,13 @@ public sealed class BreakCommandHandlerService : BackgroundService
         // Mirror the snooze fix: update NextBreakAt immediately so the tray countdown
         // reflects the next break time rather than the stale fire timestamp.
         // BreakSchedulerService calls SyncNextBreak within ≤1 s, but this closes the gap.
-        _state.NextBreakAt = now + TimeSpan.FromMinutes(_options.CurrentValue.MicroBreak.IntervalMinutes);
+        // Use min(nextMicro, nextLong) — if the long break is imminent (e.g. a micro break
+        // completed 55 min into a 60-min long cycle), NextBreakAt must point to the long break
+        // rather than always defaulting to the full micro interval.
+        var settings = _options.CurrentValue;
+        var nextMicro = now + TimeSpan.FromMinutes(settings.MicroBreak.IntervalMinutes);
+        var nextLong = _state.LastLongBreakAt + TimeSpan.FromMinutes(settings.LongBreak.IntervalMinutes);
+        _state.NextBreakAt = nextMicro <= nextLong ? nextMicro : nextLong;
         if (!isCompletion)
         {
             // Use the tier from the command (state.Tier is already the NEXT break by now).
