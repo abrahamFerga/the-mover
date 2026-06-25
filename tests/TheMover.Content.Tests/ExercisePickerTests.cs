@@ -52,4 +52,14 @@ public sealed class ExercisePickerTests
             seen.Add(picker.Pick().Id);
         Assert.True(seen.Count >= 5, $"Expected variety after 50 picks, got only {seen.Count} distinct exercises");
     }
+
+    // IDs must be lowercase kebab-case so they survive URL encoding and analytics keys.
+    [Fact]
+    public void AllExercises_HaveKebabCaseIds()
+    {
+        foreach (var ex in ExerciseLibrary.All)
+        {
+            Assert.Matches(@"^[a-z][a-z0-9-]*$", ex.Id);
+        }
+    }
 }

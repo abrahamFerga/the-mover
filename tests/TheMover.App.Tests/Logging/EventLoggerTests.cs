@@ -102,6 +102,38 @@ public sealed class EventLoggerTests
         Assert.Null(ex);
     }
 
+    // Passing null extra must not throw and must produce a valid record with only ts+event.
+    [Fact]
+    public void Log_WithNullExtra_WritesOnlyTimestampAndEvent()
+    {
+        var path = TempPath();
+        try
+        {
+            Build(path).Log(AppEventType.Heartbeat, null);
+            var doc = JsonDocument.Parse(File.ReadAllText(path).TrimEnd());
+            Assert.True(doc.RootElement.TryGetProperty("ts", out _));
+            Assert.True(doc.RootElement.TryGetProperty("event", out _));
+            Assert.Equal(2, doc.RootElement.EnumerateObject().Count());
+        }
+        finally { TryDelete(path); }
+    }
+
+    // Extra dictionary must merge all keys into the top-level JSON object.
+    [Fact]
+    public void Log_WithExtraDictionary_MergesAllKeys()
+    {
+        var path = TempPath();
+        try
+        {
+            Build(path).Log(AppEventType.BreakFired,
+                new Dictionary<string, object?> { ["tier"] = "Micro", ["source"] = "overlay" });
+            var line = File.ReadAllText(path);
+            Assert.Contains("\"tier\":\"Micro\"", line);
+            Assert.Contains("\"source\":\"overlay\"", line);
+        }
+        finally { TryDelete(path); }
+    }
+
     private static string TempPath() =>
         Path.Combine(Path.GetTempPath(), $"ev-{Guid.NewGuid():N}.jsonl");
 

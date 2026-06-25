@@ -25,7 +25,7 @@ public sealed class EventLogger
         _logger = logger;
     }
 
-    public void Log(AppEventType eventType, object? extra = null)
+    public void Log(AppEventType eventType, IReadOnlyDictionary<string, object?>? extra = null)
     {
         try
         {
@@ -35,9 +35,9 @@ public sealed class EventLogger
                 ["ts"] = DateTimeOffset.UtcNow.ToString("O"),
                 ["event"] = eventType.ToString()
             };
-            if (extra is IDictionary<string, object?> d)
+            if (extra is not null)
             {
-                foreach (var (k, v) in d) record[k] = v;
+                foreach (var (k, v) in extra) record[k] = v;
             }
             File.AppendAllText(_logPath, JsonSerializer.Serialize(record, Opts) + "\n");
         }
