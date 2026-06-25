@@ -11,6 +11,10 @@ public sealed class EventLogger
 
     private readonly string _logPath;
     private readonly ILogger<EventLogger> _logger;
+    // EventLogger is a singleton written to from several background-service threads
+    // (overlay, command handler, heartbeat). Serialise the file appends so two
+    // concurrent calls can't collide on the file handle and silently drop an event.
+    private readonly object _writeLock = new();
 
     private static string DefaultLogPath() => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -38,7 +42,11 @@ public sealed class EventLogger
             {
                 foreach (var (k, v) in extra) record[k] = v;
             }
-            File.AppendAllText(_logPath, JsonSerializer.Serialize(record, Opts) + "\n");
+            var line = JsonSerializer.Serialize(record, Opts) + "\n";
+            lock (_writeLock)
+            {
+                File.AppendAllText(_logPath, line);
+            }
         }
         catch (Exception ex)
         {

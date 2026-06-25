@@ -134,6 +134,30 @@ public sealed class EventLoggerTests
         finally { TryDelete(path); }
     }
 
+    // The shared singleton is written from multiple background-service threads. Without
+    // serialised appends, concurrent File.AppendAllText calls collide on the file handle
+    // and events are silently dropped. Every concurrent write must land as a valid line.
+    [Fact]
+    public async Task Log_ConcurrentWrites_LoseNoEvents()
+    {
+        var path = TempPath();
+        try
+        {
+            var logger = Build(path);
+            const int writers = 200;
+            var tasks = Enumerable.Range(0, writers).Select(i => Task.Run(() =>
+                logger.Log(AppEventType.BreakFired, new Dictionary<string, object?> { ["n"] = i })));
+            await Task.WhenAll(tasks);
+
+            var lines = File.ReadAllLines(path);
+            Assert.Equal(writers, lines.Length);
+            // Every line must be well-formed JSON — no torn/interleaved writes.
+            foreach (var line in lines)
+                Assert.NotNull(JsonDocument.Parse(line));
+        }
+        finally { TryDelete(path); }
+    }
+
     private static string TempPath() =>
         Path.Combine(Path.GetTempPath(), $"ev-{Guid.NewGuid():N}.jsonl");
 
