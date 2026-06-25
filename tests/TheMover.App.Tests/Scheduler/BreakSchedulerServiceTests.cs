@@ -68,7 +68,7 @@ public sealed class BreakSchedulerServiceTests
     }
 
     [Fact]
-    public async Task DoesNotFire_WhenPaused()
+    public async Task DoesNotFire_WhenPaused_HeldForMeeting()
     {
         var state = new BreakTimerState { HeldForMeeting = true };
         var (svc, ch, _) = BuildService(state: state);
@@ -78,6 +78,52 @@ public sealed class BreakSchedulerServiceTests
 
         Assert.False(fired);
         Assert.False(ch.Reader.TryRead(out _));
+    }
+
+    [Fact]
+    public async Task DoesNotFire_WhenPaused_IdleDetected()
+    {
+        var state = new BreakTimerState { IdleDetectedAt = DateTimeOffset.UtcNow.AddMinutes(-5) };
+        var (svc, ch, _) = BuildService(state: state);
+        state.LastMicroBreakAt = DateTimeOffset.UtcNow.AddMinutes(-25);
+
+        var fired = await svc.CheckAndFireAsync(DateTimeOffset.UtcNow);
+
+        Assert.False(fired);
+        Assert.False(ch.Reader.TryRead(out _));
+    }
+
+    [Fact]
+    public async Task DoesNotFire_WhenPaused_Snoozed()
+    {
+        var state = new BreakTimerState { SnoozedUntil = DateTimeOffset.UtcNow.AddMinutes(3) };
+        var (svc, ch, _) = BuildService(state: state);
+        state.LastMicroBreakAt = DateTimeOffset.UtcNow.AddMinutes(-25);
+
+        var fired = await svc.CheckAndFireAsync(DateTimeOffset.UtcNow);
+
+        Assert.False(fired);
+        Assert.False(ch.Reader.TryRead(out _));
+    }
+
+    // When both intervals elapsed simultaneously, Tier should be Micro after reset
+    // (SyncNextBreak: nextMicro <= nextLong → Micro wins the tie).
+    [Fact]
+    public async Task SyncNextBreak_WhenTied_PicksMicro()
+    {
+        var state = new BreakTimerState();
+        var (svc, _, _) = BuildService(state: state);
+        var now = DateTimeOffset.UtcNow;
+
+        // Set both to the same "last break" so nextMicro == nextLong after the long fires and resets both
+        var ago = now.AddMinutes(-60);
+        state.LastMicroBreakAt = ago;
+        state.LastLongBreakAt = ago;
+
+        await svc.CheckAndFireAsync(now); // long fires, resets both to now
+
+        // After reset, nextMicro = now+20, nextLong = now+60 → Micro
+        Assert.Equal(BreakTier.Micro, state.Tier);
     }
 
     [Fact]

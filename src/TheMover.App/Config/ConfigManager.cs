@@ -10,9 +10,12 @@ public sealed class ConfigManager(
     IOptionsMonitor<AppSettings> options,
     ILogger<ConfigManager> logger)
 {
-    private static readonly string ConfigPath = Path.Combine(
+    private static readonly string DefaultConfigPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "TheMover", "appsettings.local.json");
+
+    // Override in tests via object initializer — avoids writing to %LocalAppData% in CI.
+    internal string ConfigPath { get; init; } = DefaultConfigPath;
 
     public AppSettings Current => options.CurrentValue;
 
