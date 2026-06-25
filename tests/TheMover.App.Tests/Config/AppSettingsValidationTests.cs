@@ -149,4 +149,30 @@ public sealed class AppSettingsValidationTests
         Assert.False(Validator.TryValidateObject(settings, new ValidationContext(settings), results, validateAllProperties: true));
         Assert.Contains(results, r => r.MemberNames.Contains(nameof(AppSettings.LongBreak)));
     }
+
+    // ValidateDataAnnotations does not recurse into nested settings, so the tier [Range]
+    // attributes must be enforced by AppSettings.Validate(). 250/300 are both out of [1,240]
+    // but micro<long holds and durations fit, so ONLY the nested range check can catch them.
+    [Fact]
+    public void Settings_WhenNestedIntervalOutOfRange_FailsValidation()
+    {
+        var settings = new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 250, DurationSeconds = 30 },
+            LongBreak  = new BreakTierSettings { IntervalMinutes = 300, DurationSeconds = 30 },
+        };
+        var results = new List<ValidationResult>();
+        Assert.False(Validator.TryValidateObject(settings, new ValidationContext(settings), results, validateAllProperties: true));
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(AppSettings.MicroBreak)));
+    }
+
+    // Snooze increment [Range(1,30)] must likewise be enforced through AppSettings.Validate().
+    [Fact]
+    public void Settings_WhenNestedSnoozeIncrementOutOfRange_FailsValidation()
+    {
+        var settings = new AppSettings { Snooze = new SnoozeSettings { IncrementMinutes = 99 } };
+        var results = new List<ValidationResult>();
+        Assert.False(Validator.TryValidateObject(settings, new ValidationContext(settings), results, validateAllProperties: true));
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(AppSettings.Snooze)));
+    }
 }

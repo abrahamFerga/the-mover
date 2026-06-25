@@ -17,6 +17,15 @@ public sealed class AppSettings : IValidatableObject
     // so direct edits to appsettings.local.json are caught by ValidateOnStart().
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
+        // ValidateDataAnnotations() validates via Validator.TryValidateObject, which does NOT
+        // recurse into nested complex properties — so the [Range] attributes on the tier and
+        // snooze settings are ignored at startup. Validate them explicitly so a hand-edited
+        // appsettings.local.json with an out-of-range interval/duration/increment is caught by
+        // ValidateOnStart() instead of silently accepted.
+        foreach (var result in ValidateNested(MicroBreak, nameof(MicroBreak))) yield return result;
+        foreach (var result in ValidateNested(LongBreak, nameof(LongBreak))) yield return result;
+        foreach (var result in ValidateNested(Snooze, nameof(Snooze))) yield return result;
+
         if (MicroBreak.IntervalMinutes >= LongBreak.IntervalMinutes)
         {
             yield return new ValidationResult(
@@ -39,6 +48,16 @@ public sealed class AppSettings : IValidatableObject
                 "Long-break duration must be shorter than the long-break interval.",
                 [nameof(LongBreak)]);
         }
+    }
+
+    // Runs the [Range]/attribute validation of a nested settings object and re-keys each
+    // failure to the parent member so the startup error points at the right section.
+    private static IEnumerable<ValidationResult> ValidateNested(object instance, string memberName)
+    {
+        var nested = new List<ValidationResult>();
+        Validator.TryValidateObject(instance, new ValidationContext(instance), nested, validateAllProperties: true);
+        foreach (var result in nested)
+            yield return new ValidationResult($"{memberName}: {result.ErrorMessage}", [memberName]);
     }
 }
 
