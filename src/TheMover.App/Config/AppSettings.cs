@@ -23,6 +23,22 @@ public sealed class AppSettings : IValidatableObject
                 "Micro-break interval must be shorter than the long-break interval.",
                 [nameof(MicroBreak), nameof(LongBreak)]);
         }
+
+        // A duration ≥ interval means the overlay is still visible when the next break
+        // fires, producing an endless cycle; catch this even if the file is edited directly.
+        if (MicroBreak.DurationSeconds >= MicroBreak.IntervalMinutes * 60)
+        {
+            yield return new ValidationResult(
+                "Micro-break duration must be shorter than the micro-break interval.",
+                [nameof(MicroBreak)]);
+        }
+
+        if (LongBreak.DurationSeconds >= LongBreak.IntervalMinutes * 60)
+        {
+            yield return new ValidationResult(
+                "Long-break duration must be shorter than the long-break interval.",
+                [nameof(LongBreak)]);
+        }
     }
 }
 

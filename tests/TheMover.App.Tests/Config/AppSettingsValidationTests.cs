@@ -107,4 +107,46 @@ public sealed class AppSettingsValidationTests
         var results = new List<ValidationResult>();
         Assert.True(Validator.TryValidateObject(settings, new ValidationContext(settings), results, validateAllProperties: true));
     }
+
+    // A duration >= interval causes infinite-overlay cycles; must fail even when direct file edits bypass the UI.
+    [Fact]
+    public void Settings_WhenMicroDurationExceedsInterval_FailsValidation()
+    {
+        var settings = new AppSettings
+        {
+            // 1-minute interval = 60 s; 120 s duration outlasts the interval
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 1, DurationSeconds = 120 },
+            LongBreak  = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
+        };
+        var results = new List<ValidationResult>();
+        Assert.False(Validator.TryValidateObject(settings, new ValidationContext(settings), results, validateAllProperties: true));
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(AppSettings.MicroBreak)));
+    }
+
+    [Fact]
+    public void Settings_WhenMicroDurationEqualsInterval_FailsValidation()
+    {
+        var settings = new AppSettings
+        {
+            // Equal means the next break fires the instant the overlay closes
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 10, DurationSeconds = 600 },
+            LongBreak  = new BreakTierSettings { IntervalMinutes = 60, DurationSeconds = 300 },
+        };
+        var results = new List<ValidationResult>();
+        Assert.False(Validator.TryValidateObject(settings, new ValidationContext(settings), results, validateAllProperties: true));
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(AppSettings.MicroBreak)));
+    }
+
+    [Fact]
+    public void Settings_WhenLongDurationExceedsInterval_FailsValidation()
+    {
+        var settings = new AppSettings
+        {
+            MicroBreak = new BreakTierSettings { IntervalMinutes = 1, DurationSeconds = 30 },
+            LongBreak  = new BreakTierSettings { IntervalMinutes = 2, DurationSeconds = 600 },
+        };
+        var results = new List<ValidationResult>();
+        Assert.False(Validator.TryValidateObject(settings, new ValidationContext(settings), results, validateAllProperties: true));
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(AppSettings.LongBreak)));
+    }
 }

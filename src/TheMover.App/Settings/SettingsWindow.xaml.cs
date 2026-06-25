@@ -191,6 +191,12 @@ public partial class SettingsWindow : Window
         if (microInterval >= longInterval)
         { error = "Micro-break interval must be shorter than the long-break interval."; return false; }
 
+        if (microDuration >= microInterval * 60)
+        { error = "Micro-break duration must be shorter than the micro-break interval."; return false; }
+
+        if (longDuration >= longInterval * 60)
+        { error = "Long-break duration must be shorter than the long-break interval."; return false; }
+
         var current = _configManager.Current;
         settings = new AppSettings
         {
