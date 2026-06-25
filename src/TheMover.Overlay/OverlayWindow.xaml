@@ -1,68 +1,93 @@
 <Window x:Class="TheMover.Overlay.OverlayWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="The Mover — Break time"
+        Title="The Mover"
         WindowStyle="None"
         ResizeMode="NoResize"
         Topmost="True"
         ShowInTaskbar="False"
         WindowStartupLocation="CenterScreen"
-        Width="420" Height="280"
-        Background="#FF1E1E2E">
-    <Grid>
+        Width="480" Height="320"
+        Background="#FF1E1E2E"
+        ContentRendered="OnContentRendered">
+
+    <Grid Margin="24">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="150" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="40" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center">
+        <!-- Tier label + heading -->
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,12">
             <TextBlock x:Name="TierLabel"
-                       FontSize="14" FontWeight="SemiBold"
-                       Foreground="#FFB4BEFE"
-                       HorizontalAlignment="Center"
-                       Margin="0,0,0,6" />
-            <TextBlock Text="Step away from the screen"
-                       FontSize="22" FontWeight="Bold"
-                       Foreground="#FFCDD6F4"
-                       HorizontalAlignment="Center" />
+                       FontSize="11" FontWeight="SemiBold" Foreground="#FFB4BEFE"
+                       Margin="0,0,0,2" />
+            <TextBlock x:Name="ExerciseTitle"
+                       FontSize="20" FontWeight="Bold" Foreground="#FFCDD6F4" />
         </StackPanel>
 
-        <TextBlock x:Name="CountdownLabel"
-                   Grid.Row="1"
-                   FontSize="48" FontWeight="Bold"
-                   Foreground="#FFA6E3A1"
-                   HorizontalAlignment="Center"
-                   Margin="0,8,0,8" />
+        <!-- Breathing animation -->
+        <Grid Grid.Row="1" Grid.Column="0"
+              HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Ellipse x:Name="BreathCircle"
+                     Width="110" Height="110"
+                     Fill="#FF313244"
+                     Stroke="#FFA6E3A1"
+                     StrokeThickness="3"
+                     RenderTransformOrigin="0.5,0.5">
+                <Ellipse.RenderTransform>
+                    <ScaleTransform x:Name="BreathScale" ScaleX="1" ScaleY="1" />
+                </Ellipse.RenderTransform>
+            </Ellipse>
+            <TextBlock Text="Move"
+                       FontSize="15" FontWeight="SemiBold"
+                       Foreground="#FFA6E3A1"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
+        </Grid>
 
-        <ProgressBar x:Name="CountdownBar"
-                     Grid.Row="2"
-                     Height="6"
-                     Margin="40,0,40,16"
-                     Foreground="#FFA6E3A1"
-                     Background="#FF313244"
-                     Maximum="1" Value="1" />
+        <!-- Instruction -->
+        <TextBlock x:Name="InstructionText"
+                   Grid.Row="1" Grid.Column="1"
+                   Foreground="#FFBAC2DE" FontSize="14"
+                   TextWrapping="Wrap"
+                   VerticalAlignment="Center"
+                   Margin="20,0,0,0" />
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal"
-                    HorizontalAlignment="Center" Margin="0,0,0,16">
+        <!-- Countdown + progress bar -->
+        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Margin="0,12,0,10">
+            <TextBlock x:Name="CountdownLabel"
+                       FontSize="36" FontWeight="Bold"
+                       Foreground="#FFA6E3A1"
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,6" />
+            <ProgressBar x:Name="CountdownBar"
+                         Height="5"
+                         Foreground="#FFA6E3A1"
+                         Background="#FF313244"
+                         Maximum="1" Value="1" />
+        </StackPanel>
+
+        <!-- Snooze / Skip buttons -->
+        <StackPanel Grid.Row="3" Grid.ColumnSpan="2"
+                    Orientation="Horizontal" HorizontalAlignment="Right">
             <Button x:Name="SnoozeButton"
-                    Content="Snooze"
-                    Width="110" Height="36"
-                    Margin="0,0,12,0"
-                    FontSize="14"
+                    Content="Snooze" Width="110" Height="34"
+                    Margin="0,0,10,0" FontSize="14"
                     Click="Snooze_Click"
-                    Background="#FF45475A"
-                    Foreground="#FFCDD6F4"
+                    Background="#FF45475A" Foreground="#FFCDD6F4"
                     BorderThickness="0" />
             <Button x:Name="SkipButton"
-                    Content="Skip"
-                    Width="110" Height="36"
+                    Content="Skip" Width="110" Height="34"
                     FontSize="14"
                     Click="Skip_Click"
-                    Background="#FF45475A"
-                    Foreground="#FFCDD6F4"
+                    Background="#FF45475A" Foreground="#FFCDD6F4"
                     BorderThickness="0" />
         </StackPanel>
     </Grid>

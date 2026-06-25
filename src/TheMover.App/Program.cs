@@ -11,6 +11,7 @@ using TheMover.App.Logging;
 using TheMover.App.Overlay;
 using TheMover.App.Scheduler;
 using TheMover.App.Shell;
+using TheMover.Content;
 using TheMover.Scheduler;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -55,6 +56,7 @@ builder.Services.AddSingleton<BreakTimerState>();
 builder.Services.AddSingleton<ConfigManager>();
 builder.Services.AddSingleton<EventLogger>();
 builder.Services.AddSingleton<StartupRegistrar>();
+builder.Services.AddSingleton<ExercisePicker>();
 builder.Services.AddSingleton<TrayIconService>();
 
 // WPF Application (created once on the STA thread)
