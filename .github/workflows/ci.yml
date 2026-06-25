@@ -18,6 +18,14 @@ jobs:
         with:
           dotnet-version-file: global.json
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
       - name: Restore
         run: dotnet restore TheMover.slnx
 
@@ -25,7 +33,7 @@ jobs:
         run: dotnet build TheMover.slnx -c Release --no-restore
 
       - name: Test
-        run: dotnet test TheMover.slnx --no-build -c Release --logger "trx;LogFileName=results.trx" --results-directory ./test-results
+        run: dotnet test TheMover.slnx --no-build -c Release --logger trx --results-directory ./test-results
 
       - name: Publish test results
         uses: dorny/test-reporter@v1
