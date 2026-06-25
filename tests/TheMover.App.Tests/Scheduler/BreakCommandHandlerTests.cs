@@ -280,6 +280,25 @@ public sealed class BreakCommandHandlerTests
         Assert.Equal(beforeMicro, state.LastMicroBreakAt); // timestamps unchanged
     }
 
+    // After a snooze the tray countdown must show the snooze expiry time, not a
+    // stale pre-snooze NextBreakAt (SyncNextBreak won't run while the scheduler is paused).
+    [Fact]
+    public async Task Snooze_SetsNextBreakAtToSnoozeExpiry()
+    {
+        var (handler, commands, state) = Build();
+
+        commands.Writer.TryWrite(new SnoozeBreakCommand(5));
+        commands.Writer.Complete();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await handler.StartAsync(cts.Token);
+        await Task.Delay(50, cts.Token).ContinueWith(_ => { });
+
+        Assert.NotNull(state.SnoozedUntil);
+        Assert.True(Math.Abs((state.NextBreakAt - state.SnoozedUntil!.Value).TotalSeconds) < 2,
+            "NextBreakAt should equal SnoozedUntil so the tray shows the snooze expiry countdown");
+    }
+
     private sealed class OptionsMonitorStub(AppSettings value) : IOptionsMonitor<AppSettings>
     {
         public AppSettings CurrentValue => value;

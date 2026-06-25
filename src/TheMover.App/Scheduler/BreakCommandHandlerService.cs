@@ -68,6 +68,9 @@ public sealed class BreakCommandHandlerService : BackgroundService
             - TimeSpan.FromMinutes(settings.LongBreak.IntervalMinutes)
             + TimeSpan.FromMinutes(minutes);
         _state.SnoozedUntil = now.AddMinutes(minutes);
+        // Update the tray countdown so it shows the snooze expiry time rather than
+        // the stale pre-snooze NextBreakAt (SyncNextBreak won't run while paused).
+        _state.NextBreakAt = _state.SnoozedUntil.Value;
         _eventLogger.Log(AppEventType.Snoozed, new Dictionary<string, object?>
         {
             ["minutes"] = minutes,
