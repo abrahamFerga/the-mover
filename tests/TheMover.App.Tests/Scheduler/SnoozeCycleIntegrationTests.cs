@@ -13,9 +13,10 @@ namespace TheMover.App.Tests.Scheduler;
 public sealed class SnoozeCycleIntegrationTests
 {
     // Verifies that after a snooze the scheduler fires at the snooze boundary.
-    // IsPaused uses DateTimeOffset.UtcNow, so we backdate SnoozedUntil to simulate
-    // expiry, and derive the "effective handler time" from state.SnoozedUntil so
-    // the synthetic 'now' fed to CheckAndFireAsync aligns with LastMicroBreakAt.
+    // CheckAndFireAsync now uses IsPausedAt(now) so SnoozedUntil == atExpiry → not paused.
+    // The SnoozedUntil override below is kept as belt-and-suspenders but is no longer
+    // required for correctness; derive the "effective handler time" from state.SnoozedUntil
+    // so the synthetic 'now' fed to CheckAndFireAsync aligns with LastMicroBreakAt.
     [Fact]
     public async Task AfterSnooze_SchedulerFiresWhenSnoozeExpires()
     {
@@ -55,7 +56,10 @@ public sealed class SnoozeCycleIntegrationTests
         Assert.NotNull(state.SnoozedUntil);
         var handlerNow = state.SnoozedUntil!.Value - TimeSpan.FromMinutes(snoozeMinutes);
 
-        // Expire the snooze so IsPaused (which uses UtcNow) returns false.
+        // Belt-and-suspenders: set SnoozedUntil to the past so that even if the
+        // strictly-greater IsPausedAt check is ever changed, the test stays green.
+        // With IsPausedAt(atExpiry) where SnoozedUntil == atExpiry, this line
+        // is no longer required for the test to pass.
         state.SnoozedUntil = DateTimeOffset.UtcNow.AddSeconds(-1);
 
         var scheduler = new BreakSchedulerService(
@@ -106,7 +110,7 @@ public sealed class SnoozeCycleIntegrationTests
         Assert.NotNull(state.SnoozedUntil);
         var handlerNow = state.SnoozedUntil!.Value - TimeSpan.FromMinutes(snoozeMinutes);
 
-        // Expire the snooze for IsPaused, then check 30 s before the full interval.
+        // Belt-and-suspenders: same reasoning as AfterSnooze_SchedulerFiresWhenSnoozeExpires.
         state.SnoozedUntil = DateTimeOffset.UtcNow.AddSeconds(-1);
 
         var scheduler = new BreakSchedulerService(

@@ -41,7 +41,7 @@ public sealed class BreakSchedulerService : BackgroundService
     // Internal for unit testing without real timers
     internal async Task<bool> CheckAndFireAsync(DateTimeOffset now)
     {
-        if (_state.IsPaused) return false;
+        if (_state.IsPausedAt(now)) return false;
 
         var settings = _options.CurrentValue;
         var longInterval = TimeSpan.FromMinutes(settings.LongBreak.IntervalMinutes);

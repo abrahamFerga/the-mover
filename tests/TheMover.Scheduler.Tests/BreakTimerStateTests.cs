@@ -40,6 +40,26 @@ public sealed class BreakTimerStateTests
         Assert.False(state.IsPaused);
     }
 
+    // IsPausedAt(now) uses the supplied timestamp for the snooze check so callers
+    // with a synthetic clock don't have to manipulate the real DateTimeOffset.UtcNow.
+    [Fact]
+    public void IsPausedAt_WhenSnoozedUntilAfterNow_IsTrue()
+    {
+        var now = new DateTimeOffset(2025, 6, 1, 12, 0, 0, TimeSpan.Zero);
+        var state = new BreakTimerState { SnoozedUntil = now.AddMinutes(5) };
+        Assert.True(state.IsPausedAt(now));
+    }
+
+    // SnoozedUntil == now is NOT "still snoozed" (strictly-greater check), so the
+    // scheduler fires immediately when the synthetic clock reaches the expiry point.
+    [Fact]
+    public void IsPausedAt_WhenSnoozedUntilEqualsNow_IsFalse()
+    {
+        var now = new DateTimeOffset(2025, 6, 1, 12, 0, 0, TimeSpan.Zero);
+        var state = new BreakTimerState { SnoozedUntil = now };
+        Assert.False(state.IsPausedAt(now));
+    }
+
     [Fact]
     public void FiringTier_IsNullByDefault()
     {

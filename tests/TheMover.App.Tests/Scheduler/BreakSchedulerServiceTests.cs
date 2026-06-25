@@ -173,6 +173,40 @@ public sealed class BreakSchedulerServiceTests
         Assert.Equal(BreakTier.Micro, state.Tier);
     }
 
+    // CheckAndFireAsync uses the passed 'now' for the IsPausedAt(now) snooze check,
+    // not DateTimeOffset.UtcNow.  These two tests verify precise snooze-boundary
+    // behaviour without any real-clock manipulation.
+    [Fact]
+    public async Task DoesNotFire_WhenFakeNowIsBeforeSnoozedUntil()
+    {
+        var state = new BreakTimerState();
+        var (svc, ch, _) = BuildService(state: state);
+        var now = DateTimeOffset.UtcNow;
+        state.SnoozedUntil = now.AddSeconds(1); // expires 1 s after fake now
+        state.LastMicroBreakAt = now.AddMinutes(-25); // overdue
+
+        var fired = await svc.CheckAndFireAsync(now);
+
+        Assert.False(fired, "Must not fire while snooze is still active");
+        Assert.False(ch.Reader.TryRead(out _));
+    }
+
+    [Fact]
+    public async Task Fires_WhenFakeNowReachesSnoozedUntil()
+    {
+        var state = new BreakTimerState();
+        var (svc, ch, _) = BuildService(state: state);
+        var now = DateTimeOffset.UtcNow;
+        state.SnoozedUntil = now; // expiry == fake now (strictly-greater check → not paused)
+        state.LastMicroBreakAt = now.AddMinutes(-25); // overdue
+
+        var fired = await svc.CheckAndFireAsync(now);
+
+        Assert.True(fired, "Must fire when fake now reaches the snooze expiry point");
+        Assert.True(ch.Reader.TryRead(out var evt));
+        Assert.Equal(BreakTier.Micro, evt.Tier);
+    }
+
     // NextBreakAt must reflect the CURRENT setting, not the value at last fire.
     // Regression guard: if SyncNextBreak is only called on fire, a settings change
     // leaves the tray countdown showing a stale time until the next break fires.
