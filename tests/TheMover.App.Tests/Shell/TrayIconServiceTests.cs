@@ -72,4 +72,15 @@ public sealed class TrayIconServiceTests
 
         Assert.Equal("The Mover — Next break in 1 min", text);
     }
+
+    // The tray snooze label must reflect the configured increment, not a hardcoded "5 min".
+    [Theory]
+    [InlineData(5, "Snooze 5 min")]
+    [InlineData(10, "Snooze 10 min")]
+    [InlineData(1, "Snooze 1 min")]
+    [InlineData(30, "Snooze 30 min")]
+    public void SnoozeMenuHeader_ReflectsConfiguredIncrement(int minutes, string expected)
+    {
+        Assert.Equal(expected, TrayIconService.SnoozeMenuHeader(minutes));
+    }
 }

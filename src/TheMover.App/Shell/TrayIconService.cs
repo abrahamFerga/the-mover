@@ -77,7 +77,11 @@ public sealed class TrayIconService : IHostedService, IDisposable
     {
         var menu = new ContextMenu();
 
-        _snoozeItem = new MenuItem { Header = "Snooze 5 min", Visibility = Visibility.Collapsed };
+        _snoozeItem = new MenuItem
+        {
+            Header = SnoozeMenuHeader(_options.CurrentValue.Snooze.IncrementMinutes),
+            Visibility = Visibility.Collapsed
+        };
         _snoozeItem.Click += OnSnoozeClick;
         menu.Items.Add(_snoozeItem);
 
@@ -123,6 +127,8 @@ public sealed class TrayIconService : IHostedService, IDisposable
         Application.Current.Dispatcher.Invoke(() =>
         {
             if (_snoozeItem is null || _skipItem is null) return;
+            // Refresh the label so it reflects the increment if Settings changed at runtime.
+            _snoozeItem.Header = SnoozeMenuHeader(_options.CurrentValue.Snooze.IncrementMinutes);
             _snoozeItem.Visibility = Visibility.Visible;
             _skipItem.Visibility = Visibility.Visible;
             if (_snoozeItem.Tag is Separator sep) sep.Visibility = Visibility.Visible;
@@ -168,6 +174,10 @@ public sealed class TrayIconService : IHostedService, IDisposable
             };
         });
     }
+
+    // Extracted for unit testing — keeps the tray snooze label in step with the
+    // configured increment instead of a hardcoded "5 min" that lies when changed.
+    internal static string SnoozeMenuHeader(int incrementMinutes) => $"Snooze {incrementMinutes} min";
 
     private string BuildActiveTooltip() =>
         BuildActiveTooltipText(_state.NextBreakAt, DateTimeOffset.UtcNow);
