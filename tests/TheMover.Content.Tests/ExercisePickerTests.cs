@@ -62,4 +62,15 @@ public sealed class ExercisePickerTests
             Assert.Matches(@"^[a-z][a-z0-9-]*$", ex.Id);
         }
     }
+
+    // ExerciseLibrary.All is backed by an array (via C# collection expression), not a
+    // mutable List<T>. Verify that the IList<T> view reports IsReadOnly=true so a caller
+    // cannot corrupt the catalog by casting and calling Add/Clear.
+    [Fact]
+    public void Library_All_IsReadOnly()
+    {
+        var asList = ExerciseLibrary.All as IList<Exercise>;
+        Assert.NotNull(asList);
+        Assert.True(asList.IsReadOnly, "ExerciseLibrary.All must be backed by an immutable collection");
+    }
 }
