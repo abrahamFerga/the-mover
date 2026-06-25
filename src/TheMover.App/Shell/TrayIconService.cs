@@ -146,8 +146,11 @@ public sealed class TrayIconService : IHostedService, IDisposable
         });
     }
 
-    private bool _isIdle;
-    private bool _inMeeting;
+    // Written by background threads (IdleMonitorService, CalendarSyncService); read on the
+    // dispatcher thread by the countdown timer tick without a cross-thread Dispatcher.Invoke
+    // barrier — volatile ensures the dispatcher always sees the most recent write.
+    private volatile bool _isIdle;
+    private volatile bool _inMeeting;
 
     public void UpdateTooltip(bool paused)
     {
