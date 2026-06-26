@@ -82,23 +82,24 @@ public sealed class IdleMonitorServiceTests
     [Fact]
     public void WhenActivityResumes_ResetsBreakIntervals()
     {
+        var controlledNow = new DateTimeOffset(2025, 1, 1, 12, 0, 0, TimeSpan.Zero);
         var idleTime = TimeSpan.FromMinutes(3);
         var state = new BreakTimerState();
-        var longAgo = DateTimeOffset.UtcNow.AddHours(-2);
-        state.LastMicroBreakAt = longAgo;
-        state.LastLongBreakAt = longAgo;
+        state.LastMicroBreakAt = controlledNow.AddHours(-2);
+        state.LastLongBreakAt = controlledNow.AddHours(-2);
         var svc = new IdleMonitorService(
             state,
             () => idleTime,
             _ => { },
-            NullLogger<IdleMonitorService>.Instance);
+            NullLogger<IdleMonitorService>.Instance,
+            clock: () => controlledNow);
 
         svc.CheckIdle(); // goes idle
         idleTime = TimeSpan.FromSeconds(1);
         svc.CheckIdle(); // activity resumes
 
-        Assert.True(state.LastMicroBreakAt > longAgo);
-        Assert.True(state.LastLongBreakAt > longAgo);
+        Assert.Equal(controlledNow, state.LastMicroBreakAt);
+        Assert.Equal(controlledNow, state.LastLongBreakAt);
     }
 
     [Fact]
@@ -146,21 +147,23 @@ public sealed class IdleMonitorServiceTests
     [Fact]
     public void OnResume_ClearsIdleAndResetsBreakIntervals()
     {
+        var controlledNow = new DateTimeOffset(2025, 1, 1, 12, 0, 0, TimeSpan.Zero);
         var state = new BreakTimerState
         {
-            IdleDetectedAt = DateTimeOffset.UtcNow,
-            LastMicroBreakAt = DateTimeOffset.UtcNow.AddHours(-3),
-            LastLongBreakAt = DateTimeOffset.UtcNow.AddHours(-3)
+            IdleDetectedAt = controlledNow.AddMinutes(-30),
+            LastMicroBreakAt = controlledNow.AddHours(-3),
+            LastLongBreakAt = controlledNow.AddHours(-3)
         };
         var svc = new IdleMonitorService(state, () => TimeSpan.Zero, _ => { },
-            NullLogger<IdleMonitorService>.Instance);
+            NullLogger<IdleMonitorService>.Instance,
+            clock: () => controlledNow);
 
         svc.OnPowerModeChanged(this, new PowerModeChangedEventArgs(PowerModes.Resume));
 
         Assert.Null(state.IdleDetectedAt);
         Assert.False(state.IsPaused);
-        Assert.True(state.LastMicroBreakAt > DateTimeOffset.UtcNow.AddSeconds(-5));
-        Assert.True(state.LastLongBreakAt > DateTimeOffset.UtcNow.AddSeconds(-5));
+        Assert.Equal(controlledNow, state.LastMicroBreakAt);
+        Assert.Equal(controlledNow, state.LastLongBreakAt);
     }
 
     [Fact]

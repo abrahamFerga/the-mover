@@ -17,6 +17,7 @@ public sealed class IdleMonitorService : BackgroundService
     private readonly Func<TimeSpan> _getIdleTime;
     private readonly Action<bool> _updateTooltip;
     private readonly ILogger<IdleMonitorService> _logger;
+    private readonly Func<DateTimeOffset> _clock;
 
     public IdleMonitorService(
         BreakTimerState state,
@@ -24,16 +25,19 @@ public sealed class IdleMonitorService : BackgroundService
         ILogger<IdleMonitorService> logger)
         : this(state, GetSystemIdleTime, tray.UpdateTooltip, logger) { }
 
+    // clock defaults to DateTimeOffset.UtcNow; tests inject a fixed value for exact assertions.
     internal IdleMonitorService(
         BreakTimerState state,
         Func<TimeSpan> getIdleTime,
         Action<bool> updateTooltip,
-        ILogger<IdleMonitorService> logger)
+        ILogger<IdleMonitorService> logger,
+        Func<DateTimeOffset>? clock = null)
     {
         _state = state;
         _getIdleTime = getIdleTime;
         _updateTooltip = updateTooltip;
         _logger = logger;
+        _clock = clock ?? (() => DateTimeOffset.UtcNow);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -60,7 +64,7 @@ public sealed class IdleMonitorService : BackgroundService
     // On resume: clear idle so breaks don't fire the moment the lid opens.
     internal void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = _clock();
         if (e.Mode == PowerModes.Suspend)
         {
             _state.IdleDetectedAt = now;
@@ -80,7 +84,7 @@ public sealed class IdleMonitorService : BackgroundService
     internal void CheckIdle()
     {
         var idle = _getIdleTime();
-        var now = DateTimeOffset.UtcNow;
+        var now = _clock();
 
         if (idle >= TimeSpan.FromSeconds(IdleThresholdSeconds))
         {
