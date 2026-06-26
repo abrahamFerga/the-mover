@@ -43,19 +43,21 @@ public sealed class HeartbeatServiceTests
     [Fact]
     public async Task OnStart_WritesHeartbeatBeforeFirstTimerTick()
     {
-        var (service, _, path) = Build();
+        var path = Path.Combine(Path.GetTempPath(), $"hb-{Guid.NewGuid():N}.jsonl");
+        var eventLogger = new EventLogger(path, NullLogger<EventLogger>.Instance);
+        var tcs = new TaskCompletionSource();
+        var service = new HeartbeatService(eventLogger, NullLogger<HeartbeatService>.Instance,
+            onWritten: () => tcs.TrySetResult());
         try
         {
-            using var cts = new CancellationTokenSource();
-            await service.StartAsync(cts.Token);
-
-            // Brief wait so the background task can execute WriteHeartbeat() before the 24h timer.
-            await Task.Delay(150);
+            await service.StartAsync(CancellationToken.None);
+            // ExecuteAsync runs WriteHeartbeat() on a thread-pool thread before its first
+            // PeriodicTimer await; wait for the callback rather than a fixed Task.Delay.
+            await tcs.Task;
 
             Assert.True(File.Exists(path));
             Assert.Contains("\"event\":\"Heartbeat\"", File.ReadAllText(path));
 
-            await cts.CancelAsync();
             await service.StopAsync(CancellationToken.None);
         }
         finally { if (File.Exists(path)) File.Delete(path); }

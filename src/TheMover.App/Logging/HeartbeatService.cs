@@ -4,10 +4,24 @@ using Microsoft.Extensions.Logging;
 
 namespace TheMover.App.Logging;
 
-public sealed class HeartbeatService(EventLogger eventLogger, ILogger<HeartbeatService> logger)
-    : BackgroundService
+public sealed class HeartbeatService : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromHours(24);
+    private readonly EventLogger _eventLogger;
+    private readonly ILogger<HeartbeatService> _logger;
+    private readonly Action? _onWritten;
+
+    public HeartbeatService(EventLogger eventLogger, ILogger<HeartbeatService> logger)
+        : this(eventLogger, logger, null) { }
+
+    // onWritten fires after each WriteHeartbeat() call — used by tests for deterministic
+    // synchronization instead of Task.Delay (ExecuteAsync runs on a thread-pool thread).
+    internal HeartbeatService(EventLogger eventLogger, ILogger<HeartbeatService> logger, Action? onWritten)
+    {
+        _eventLogger = eventLogger;
+        _logger = logger;
+        _onWritten = onWritten;
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -25,7 +39,8 @@ public sealed class HeartbeatService(EventLogger eventLogger, ILogger<HeartbeatS
 
     internal void WriteHeartbeat()
     {
-        eventLogger.Log(AppEventType.Heartbeat);
-        logger.LogDebug("Daily heartbeat written");
+        _eventLogger.Log(AppEventType.Heartbeat);
+        _onWritten?.Invoke();
+        _logger.LogDebug("Daily heartbeat written");
     }
 }
