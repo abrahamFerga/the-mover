@@ -81,6 +81,20 @@ public sealed class GraphCalendarClientTests
             handler.LastRequest?.Headers.Authorization?.ToString());
     }
 
+    // startDateTime/endDateTime must use the 'Z' UTC designator so '+00:00' never
+    // appears raw in a URL query string ('+' is a reserved character in query values).
+    [Fact]
+    public async Task QueryGraph_TimestampsUseZFormat()
+    {
+        var handler = new CapturingHandler(HttpStatusCode.OK, """{"value":[]}""");
+        var client = BuildWithHandler(handler);
+
+        await client.QueryGraphAsync("token");
+
+        var url = handler.LastRequest!.RequestUri!.ToString();
+        Assert.DoesNotContain("+00:00", url);
+    }
+
     // The 4-arg constructor's factory must be lazy — called inside ConnectAsync,
     // not at DI startup (when credentials may not yet be saved by the user).
     [Fact]

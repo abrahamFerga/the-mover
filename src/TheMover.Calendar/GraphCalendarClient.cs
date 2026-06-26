@@ -114,8 +114,10 @@ public sealed class GraphCalendarClient : ICalendarClient
         try
         {
             var now = DateTimeOffset.UtcNow;
+            // UtcDateTime.ToString("O") produces "…Z" (the URL-safe UTC designator); DateTimeOffset
+            // "O" format produces "+00:00", whose '+' would need percent-encoding in query strings.
             var url = $"https://graph.microsoft.com/v1.0/me/calendarView" +
-                      $"?startDateTime={now:O}&endDateTime={now.AddSeconds(1):O}" +
+                      $"?startDateTime={now.UtcDateTime:O}&endDateTime={now.UtcDateTime.AddSeconds(1):O}" +
                       $"&$select=subject,showAs&$filter=showAs eq 'busy' or showAs eq 'oof'";
 
             using var req = new HttpRequestMessage(HttpMethod.Get, url);
