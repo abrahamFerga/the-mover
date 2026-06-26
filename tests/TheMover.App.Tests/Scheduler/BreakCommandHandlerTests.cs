@@ -39,7 +39,9 @@ public sealed class BreakCommandHandlerTests
         await handler.ExecuteTask!;
 
         Assert.NotNull(state.SnoozedUntil);
-        Assert.True(state.SnoozedUntil > DateTimeOffset.UtcNow);
+        // HandleSnooze uses one 'now': SnoozedUntil = now + 5, LastMicroBreakAt = now - microInterval + 5.
+        // SnoozedUntil - LastMicroBreakAt == microInterval (20 min) — exact, no real-clock comparison.
+        Assert.Equal(state.LastMicroBreakAt + TimeSpan.FromMinutes(20), state.SnoozedUntil!.Value);
     }
 
     [Fact]
@@ -71,7 +73,8 @@ public sealed class BreakCommandHandlerTests
         await handler.ExecuteTask!;
 
         Assert.True(state.LastMicroBreakAt > longAgo);
-        Assert.True(state.LastLongBreakAt > longAgo);
+        // HandleSkip(null) resets both to the same 'now' — exact equality, no tolerance needed.
+        Assert.Equal(state.LastMicroBreakAt, state.LastLongBreakAt);
     }
 
     [Fact]
@@ -241,7 +244,9 @@ public sealed class BreakCommandHandlerTests
 
             // Natural completion: no Dismissed event, timers reset
             Assert.False(File.Exists(logPath), "No event log should be written for natural completion");
-            Assert.True(state.LastMicroBreakAt > DateTimeOffset.UtcNow.AddSeconds(-5));
+            // HandleSkip(Micro) resets LastMicroBreakAt = now and NextBreakAt = now + microInterval;
+            // cross-reference between stored values is exact — no real-clock comparison needed.
+            Assert.Equal(state.LastMicroBreakAt + TimeSpan.FromMinutes(20), state.NextBreakAt);
         }
         finally { if (File.Exists(logPath)) File.Delete(logPath); }
     }
