@@ -158,6 +158,23 @@ public sealed class EventLoggerTests
         finally { TryDelete(path); }
     }
 
+    // Callers must not be able to override the reserved "ts" and "event" fields by passing
+    // them in extra — they are authoritative and are always written last.
+    [Fact]
+    public void Log_ExtraCannotOverrideReservedFields()
+    {
+        var path = TempPath();
+        try
+        {
+            Build(path).Log(AppEventType.Heartbeat,
+                new Dictionary<string, object?> { ["event"] = "HIJACK", ["ts"] = "fake" });
+            var doc = JsonDocument.Parse(File.ReadAllText(path).TrimEnd());
+            Assert.Equal("Heartbeat", doc.RootElement.GetProperty("event").GetString());
+            Assert.NotEqual("fake", doc.RootElement.GetProperty("ts").GetString());
+        }
+        finally { TryDelete(path); }
+    }
+
     private static string TempPath() =>
         Path.Combine(Path.GetTempPath(), $"ev-{Guid.NewGuid():N}.jsonl");
 

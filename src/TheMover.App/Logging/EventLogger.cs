@@ -37,15 +37,14 @@ public sealed class EventLogger
     {
         try
         {
-            var record = new Dictionary<string, object?>
-            {
-                ["ts"] = DateTimeOffset.UtcNow.ToString("O"),
-                ["event"] = eventType.ToString()
-            };
+            var record = new Dictionary<string, object?>();
             if (extra is not null)
             {
                 foreach (var (k, v) in extra) record[k] = v;
             }
+            // Set ts and event after extra so they can never be overridden by a caller.
+            record["ts"] = DateTimeOffset.UtcNow.ToString("O");
+            record["event"] = eventType.ToString();
             var line = JsonSerializer.Serialize(record, Opts) + "\n";
             lock (_writeLock)
             {
