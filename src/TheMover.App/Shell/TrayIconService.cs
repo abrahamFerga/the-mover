@@ -225,7 +225,9 @@ public sealed class TrayIconService : IHostedService, IDisposable
         Application.Current?.Dispatcher.Invoke(() =>
         {
             _countdownTimer?.Stop();
+            _countdownTimer = null;
             _trayIcon?.Dispose();
+            _trayIcon = null;
         });
         _logger.LogInformation("Tray icon disposed");
         return Task.CompletedTask;
@@ -233,6 +235,8 @@ public sealed class TrayIconService : IHostedService, IDisposable
 
     public void Dispose()
     {
+        // StopAsync already freed and nulled both fields on the dispatcher thread;
+        // these null-safe calls are a no-op in normal shutdown and a safety net otherwise.
         _countdownTimer?.Stop();
         _trayIcon?.Dispose();
     }
