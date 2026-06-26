@@ -295,9 +295,9 @@ public sealed class BreakCommandHandlerTests
         await handler.StartAsync(CancellationToken.None);
         await handler.ExecuteTask!;
 
-        var expectedNext = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(20);
-        Assert.True(Math.Abs((state.NextBreakAt - expectedNext).TotalSeconds) < 5,
-            "NextBreakAt must equal now + micro interval after a skip");
+        // HandleSkip sets LastMicroBreakAt = now and NextBreakAt = now + microInterval;
+        // both use the same 'now' so equality is exact.
+        Assert.Equal(state.LastMicroBreakAt + TimeSpan.FromMinutes(20), state.NextBreakAt);
     }
 
     // After a snooze the tray countdown must show the snooze expiry time, not a
@@ -376,7 +376,8 @@ public sealed class BreakCommandHandlerTests
             NullLogger<BreakCommandHandlerService>.Instance);
 
         // Last long break was 20 min ago → 40 min remain before the next one.
-        state.LastLongBreakAt = DateTimeOffset.UtcNow.AddMinutes(-20);
+        var beforeLastLong = DateTimeOffset.UtcNow.AddMinutes(-20);
+        state.LastLongBreakAt = beforeLastLong;
 
         commands.Writer.TryWrite(new SnoozeBreakCommand(5));
         commands.Writer.Complete();
@@ -384,11 +385,8 @@ public sealed class BreakCommandHandlerTests
         await handler.StartAsync(CancellationToken.None);
         await handler.ExecuteTask!;
 
-        // At snooze expiry the elapsed time since LastLongBreakAt must be < 60 min.
-        // If >= 60, the scheduler would fire a premature long break instead of micro.
-        var longElapsedAtExpiry = (state.SnoozedUntil!.Value - state.LastLongBreakAt).TotalMinutes;
-        Assert.True(longElapsedAtExpiry < 60,
-            $"Long-break timer must not shift when long break is not due; elapsed at expiry = {longElapsedAtExpiry:F1} min");
+        // HandleSnooze must not shift LastLongBreakAt when long break is not yet due — exact equality.
+        Assert.Equal(beforeLastLong, state.LastLongBreakAt);
     }
 
     // When the long break is imminent after a micro skip, NextBreakAt must point to the
@@ -421,9 +419,8 @@ public sealed class BreakCommandHandlerTests
         await handler.StartAsync(CancellationToken.None);
         await handler.ExecuteTask!;
 
-        var remaining = (state.NextBreakAt - DateTimeOffset.UtcNow).TotalMinutes;
-        Assert.True(Math.Abs(remaining - 5) < 1,
-            $"NextBreakAt must point to the imminent long break (~5 min), not the micro interval; remaining = {remaining:F1} min");
+        // HandleSkip(Micro) doesn't change LastLongBreakAt; NextBreakAt = LastLongBreakAt + longInterval exactly.
+        Assert.Equal(state.LastLongBreakAt + TimeSpan.FromMinutes(60), state.NextBreakAt);
     }
 
     // Completing a micro break must not reset LastLongBreakAt — otherwise the long
@@ -447,7 +444,8 @@ public sealed class BreakCommandHandlerTests
             NullLogger<BreakCommandHandlerService>.Instance);
 
         // 40 min into a 60-min long-break cycle — 20 min remain before the long break.
-        state.LastLongBreakAt = DateTimeOffset.UtcNow.AddMinutes(-40);
+        var beforeLastLong = DateTimeOffset.UtcNow.AddMinutes(-40);
+        state.LastLongBreakAt = beforeLastLong;
 
         commands.Writer.TryWrite(new SkipBreakCommand(BreakTier.Micro, IsCompletion: true));
         commands.Writer.Complete();
@@ -455,10 +453,8 @@ public sealed class BreakCommandHandlerTests
         await handler.StartAsync(CancellationToken.None);
         await handler.ExecuteTask!;
 
-        // The long-break timer must still show ~40 min elapsed, not 0 (reset).
-        var longElapsed = (DateTimeOffset.UtcNow - state.LastLongBreakAt).TotalMinutes;
-        Assert.True(longElapsed >= 39,
-            $"LastLongBreakAt must not be reset on micro completion; elapsed = {longElapsed:F1} min");
+        // HandleSkip(Micro) must not touch LastLongBreakAt — exact equality, no tolerance.
+        Assert.Equal(beforeLastLong, state.LastLongBreakAt);
     }
 
     // Completing or skipping a long break must reset LastLongBreakAt so the next
@@ -488,9 +484,8 @@ public sealed class BreakCommandHandlerTests
         await handler.StartAsync(CancellationToken.None);
         await handler.ExecuteTask!;
 
-        var longElapsed = (DateTimeOffset.UtcNow - state.LastLongBreakAt).TotalSeconds;
-        Assert.True(longElapsed < 5,
-            $"LastLongBreakAt must be reset after long-break completion; elapsed = {longElapsed:F1} s");
+        // HandleSkip(Long) sets both timers to the same 'now'; exact equality, no tolerance.
+        Assert.Equal(state.LastMicroBreakAt, state.LastLongBreakAt);
     }
 
 }
