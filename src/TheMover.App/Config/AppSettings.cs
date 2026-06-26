@@ -25,6 +25,7 @@ public sealed class AppSettings : IValidatableObject
         foreach (var result in ValidateNested(MicroBreak, nameof(MicroBreak))) yield return result;
         foreach (var result in ValidateNested(LongBreak, nameof(LongBreak))) yield return result;
         foreach (var result in ValidateNested(Snooze, nameof(Snooze))) yield return result;
+        foreach (var result in ValidateNested(Calendar, nameof(Calendar))) yield return result;
 
         if (MicroBreak.IntervalMinutes >= LongBreak.IntervalMinutes)
         {

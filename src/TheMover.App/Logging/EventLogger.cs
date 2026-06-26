@@ -26,13 +26,17 @@ public sealed class EventLogger
     {
         _logPath = logPath;
         _logger = logger;
+        // Create the log directory once at construction rather than on every Log() call.
+        // Directory.CreateDirectory is idempotent but still a syscall; hoisting it here
+        // avoids the overhead on the write hot-path.
+        try { Directory.CreateDirectory(Path.GetDirectoryName(logPath)!); }
+        catch (Exception ex) { logger.LogWarning(ex, "Could not create event log directory — events will not be persisted"); }
     }
 
     public void Log(AppEventType eventType, IReadOnlyDictionary<string, object?>? extra = null)
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_logPath)!);
             var record = new Dictionary<string, object?>
             {
                 ["ts"] = DateTimeOffset.UtcNow.ToString("O"),
